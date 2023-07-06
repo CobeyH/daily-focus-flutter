@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'analytics_tab.dart';
+import 'settings_tab.dart';
+import 'task_tab.dart';
+
 class PageRouter extends StatefulWidget {
   const PageRouter({super.key});
 
@@ -12,18 +16,9 @@ class _PageRouter extends State<PageRouter> {
   static const TextStyle optionStyle =
       TextStyle(fontSize: 30, fontWeight: FontWeight.bold);
   static const List<Widget> _widgetOptions = <Widget>[
-    Text(
-      'Index 0: Home',
-      style: optionStyle,
-    ),
-    Text(
-      'Index 1: Business',
-      style: optionStyle,
-    ),
-    Text(
-      'Index 2: School',
-      style: optionStyle,
-    ),
+    TaskTab(),
+    AnalyticsTab(),
+    SettingsTab(),
   ];
 
   void _onItemTapped(int index) {
@@ -44,15 +39,15 @@ class _PageRouter extends State<PageRouter> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
+            icon: Icon(Icons.timer),
+            label: 'Timer',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.business),
-            label: 'Business',
+            icon: Icon(Icons.auto_graph),
+            label: 'Analytics',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.school),
+            icon: Icon(Icons.settings),
             label: 'School',
           ),
         ],
