@@ -1,4 +1,4 @@
-import 'package:daily_focus/router.dart';
+import 'package:daily_focus/page_router.dart';
 import 'package:flutter/material.dart';
 
 void main() {
