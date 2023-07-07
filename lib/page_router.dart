@@ -48,7 +48,7 @@ class _PageRouter extends State<PageRouter> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: 'School',
+            label: 'Settings',
           ),
         ],
         currentIndex: _selectedIndex,
