@@ -1,4 +1,4 @@
-import 'package:daily_focus/page_router.dart';
+import 'package:daily_focus/state_change.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -17,9 +17,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const PageRouter(),
+      home: const StateChange(),
     );
   }
 }
-
-
