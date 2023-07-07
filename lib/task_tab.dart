@@ -1,20 +1,19 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models/task.dart';
 import 'progress_bar_task.dart';
+import 'providers/task_provider.dart';
 
-class TaskTab extends StatelessWidget {
+class TaskTab extends ConsumerWidget {
   const TaskTab({Key? key}) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    List<Task> tasks = [
-      Task(name: 'Task 1', goal: 10, progress: 3.0, incremental: true),
-      Task(name: 'Task 2', goal: 15, progress: 5.0, incremental: false),
-      Task(name: 'Task 3', goal: 20, progress: 3.0, incremental: true),
-    ];
+  Widget _getTaskGrid(BuildContext context, List<Task> tasks) {
+    if (tasks.isEmpty) {
+      return const Center(child: Text('No tasks yet'));
+    }
     double width = MediaQuery.of(context).size.width;
     int columnCount = max(width ~/ 200, 1);
     return Padding(
@@ -33,5 +32,21 @@ class TaskTab extends StatelessWidget {
             .toList(),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+        body: ref.watch(tasksProvider).when(
+            data: (tasks) => _getTaskGrid(context, tasks),
+            error: (e, _) => Text(e.toString()),
+            loading: () => const Center(child: CircularProgressIndicator())),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            ref.read(tasksProvider.notifier).createNew(Task(
+                name: 'New Task', goal: 15, progress: 5, incremental: false));
+          },
+          child: const Icon(Icons.add),
+        ));
   }
 }

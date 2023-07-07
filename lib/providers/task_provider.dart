@@ -22,6 +22,7 @@ class Tasks extends _$Tasks {
 
   void createNew(Task task) {
     state = AsyncData([...state.value ?? [], task]);
+    save();
   }
 
   Future<void> save() async {
