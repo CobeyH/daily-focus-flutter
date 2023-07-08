@@ -4,5 +4,6 @@
   },
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "cSpell.language": "en,de-DE"
+  "cSpell.language": "en,de-DE",
+  "cSpell.words": ["prefs"]
 }
