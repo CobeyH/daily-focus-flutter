@@ -24,13 +24,19 @@ class _ProgressBarTaskState extends State<ProgressBarTask> {
 
   @override
   Widget build(BuildContext context) {
-    return CircularStepProgressIndicator(
-      height: 180,
-      width: 180,
-      totalSteps: _task.goal,
-      padding: _task.incremental ? 0 : pi / 20,
-      currentStep: _task.progress.round(),
-      child: Center(child: Text(_task.progress.toStringAsFixed(0))),
+    return Expanded(
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: CircularStepProgressIndicator(
+            totalSteps: _task.goal,
+            padding: _task.incremental ? 0 : pi / 20,
+            currentStep: _task.progress.round(),
+            child: Center(child: Text(_task.progress.toStringAsFixed(0))),
+          ),
+        ),
+      ),
     );
   }
 }

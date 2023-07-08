@@ -16,7 +16,7 @@ class Task {
   });
 
   Task.empty()
-      : name = "",
+      : name = "Test Task",
         goal = 1,
         progress = 0.0,
         incremental = false,
