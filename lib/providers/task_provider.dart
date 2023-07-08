@@ -1,7 +1,5 @@
-import 'dart:convert';
-
+import 'package:daily_focus/providers/task_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/task.dart';
 
@@ -11,25 +9,12 @@ part 'task_provider.g.dart';
 class Tasks extends _$Tasks {
   @override
   Future<List<Task>> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString('taskList');
-    if (jsonString != null) {
-      final List<dynamic> jsonList = jsonDecode(jsonString);
-      return jsonList.map((json) => Task.fromJson(json)).toList();
-    }
-    return [];
+    final db = TasksDatabase.dbProvider;
+    return await db.getAllTasks();
   }
 
   void createNew(Task task) {
     state = AsyncData([...state.value ?? [], task]);
-    save();
-  }
-
-  Future<void> save() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString(
-      'taskList',
-      jsonEncode(state.value?.map((t) => t.toJson()).toList()),
-    );
+    TasksDatabase.dbProvider.insertTask(task);
   }
 }

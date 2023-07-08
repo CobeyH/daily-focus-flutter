@@ -43,8 +43,7 @@ class TaskTab extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator())),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
-            ref.read(tasksProvider.notifier).createNew(Task(
-                name: 'New Task', goal: 15, progress: 5, incremental: false));
+            ref.read(tasksProvider.notifier).createNew(Task.empty());
           },
           child: const Icon(Icons.add),
         ));
