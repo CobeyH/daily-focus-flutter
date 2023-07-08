@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models/task.dart';
 import 'progress_bar_task.dart';
 import 'providers/task_provider.dart';
+import 'task_view.dart';
 
 class TaskTab extends ConsumerWidget {
   const TaskTab({Key? key}) : super(key: key);
@@ -26,12 +27,26 @@ class TaskTab extends ConsumerWidget {
             .map((e) => Column(
                   children: [
                     Text(e.name),
-                    ProgressBarTask(task: e),
+                    TextButton(
+                      style: ButtonStyle(
+                          overlayColor: MaterialStateProperty.all<Color>(
+                              Colors.transparent)),
+                      onPressed: () => onTapProgressBar(context, e),
+                      child: ProgressBarTask(task: e),
+                    )
                   ],
                 ))
             .toList(),
       ),
     );
+  }
+
+  onTapProgressBar(BuildContext context, Task task) async {
+    Navigator.push(context, MaterialPageRoute<void>(
+      builder: (BuildContext context) {
+        return TaskView(task: task);
+      },
+    ));
   }
 
   @override
