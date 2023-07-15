@@ -24,8 +24,7 @@ class _ProgressBarTaskState extends State<ProgressBarTask> {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: AspectRatio(
+    return AspectRatio(
         aspectRatio: 1,
         child: Padding(
           padding: const EdgeInsets.all(8.0),
@@ -33,10 +32,12 @@ class _ProgressBarTaskState extends State<ProgressBarTask> {
             totalSteps: _task.goal,
             padding: _task.incremental ? 0 : pi / 20,
             currentStep: _task.progress.round(),
-            child: Center(child: Text(_task.progress.toStringAsFixed(0))),
+            child: Center(
+                child: Text(
+              _task.progress.toStringAsFixed(0),
+              style: Theme.of(context).textTheme.titleLarge,
+            )),
           ),
-        ),
-      ),
-    );
+        ));
   }
 }

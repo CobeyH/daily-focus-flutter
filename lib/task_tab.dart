@@ -32,7 +32,7 @@ class TaskTab extends ConsumerWidget {
                           overlayColor: MaterialStateProperty.all<Color>(
                               Colors.transparent)),
                       onPressed: () => onTapProgressBar(context, e),
-                      child: ProgressBarTask(task: e),
+                      child: Hero(tag: e.uuid, child: ProgressBarTask(task: e)),
                     )
                   ],
                 ))
