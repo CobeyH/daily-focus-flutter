@@ -17,4 +17,11 @@ class Tasks extends _$Tasks {
     state = AsyncData([...state.value ?? [], task]);
     TasksDatabase.dbProvider.insertTask(task);
   }
+
+  void delete(String taskId) {
+    state = AsyncData((state.value ?? [])
+        .where((element) => element.uuid != taskId)
+        .toList());
+    TasksDatabase.dbProvider.deleteTask(taskId);
+  }
 }

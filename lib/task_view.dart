@@ -1,3 +1,4 @@
+import 'package:daily_focus/providers/task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +32,20 @@ class TaskViewState extends ConsumerState<TaskView> {
             ElevatedButton(
                 onPressed: () => {print("Implement me")},
                 child: const Icon(Icons.play_arrow)),
+            ButtonBar(
+              alignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                    onPressed: () {
+                      ref.read(tasksProvider.notifier).delete(widget.task.uuid);
+                      Navigator.pop(context);
+                    },
+                    child: const Icon(Icons.delete)),
+                ElevatedButton(
+                    onPressed: () => {print("Implement me")},
+                    child: const Icon(Icons.edit)),
+              ],
+            ),
             const SizedBox(
               height: 100,
             )

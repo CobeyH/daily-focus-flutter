@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:daily_focus/task_creation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,11 +57,6 @@ class TaskTab extends ConsumerWidget {
             data: (tasks) => _getTaskGrid(context, tasks),
             error: (e, _) => Text(e.toString()),
             loading: () => const Center(child: CircularProgressIndicator())),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            ref.read(tasksProvider.notifier).createNew(Task.empty());
-          },
-          child: const Icon(Icons.add),
-        ));
+        floatingActionButton: const TaskCreation());
   }
 }
