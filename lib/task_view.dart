@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models/task.dart';
+import 'play_button.dart';
 import 'progress_bar_task.dart';
 
 class TaskView extends ConsumerStatefulWidget {
@@ -27,9 +28,7 @@ class TaskViewState extends ConsumerState<TaskView> {
               tag: widget.task.uuid,
               child: ProgressBarTask(task: widget.task),
             ),
-            ElevatedButton(
-                onPressed: () => {print("Implement me")},
-                child: const Icon(Icons.play_arrow)),
+            PlayButton(activeTask: widget.task),
             ButtonBar(
               alignment: MainAxisAlignment.center,
               children: [
