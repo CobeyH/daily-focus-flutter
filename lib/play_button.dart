@@ -33,19 +33,38 @@ class PlayButtonState extends ConsumerState<PlayButton> {
     timer?.cancel();
   }
 
+  void toggleTimerTask() {
+    setState(() {
+      isPlaying = !isPlaying;
+    });
+    if (isPlaying) {
+      startTimer();
+    } else {
+      stopTimer();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final task = ref.watch(activeTaskProvider);
+    bool finished = task == null || task.progress >= task.goal;
+    ref.listen<Task?>(activeTaskProvider, (Task? _, Task? task) {
+      if (finished) {
+        stopTimer();
+        isPlaying = false;
+      }
+    });
     return ElevatedButton(
       onPressed: () {
-        setState(() {
-          isPlaying = !isPlaying;
-        });
-        if (isPlaying) {
-          startTimer();
+        if (finished) return;
+        if (task.incremental) {
+          ref.read(activeTaskProvider.notifier).increment();
         } else {
-          stopTimer();
+          toggleTimerTask();
         }
       },
+      style: ElevatedButton.styleFrom(
+          backgroundColor: finished ? Colors.grey : Colors.lightGreen),
       child: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
     );
   }

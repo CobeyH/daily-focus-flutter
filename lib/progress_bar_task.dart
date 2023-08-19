@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:step_progress_indicator/step_progress_indicator.dart';
@@ -18,7 +16,7 @@ class ProgressBarTask extends ConsumerWidget {
           padding: const EdgeInsets.all(8.0),
           child: CircularStepProgressIndicator(
             totalSteps: task.goal,
-            padding: task.incremental ? 0 : pi / 20,
+            padding: task.incremental ? 1 / task.goal : 0,
             currentStep: task.progress.round(),
             child: Center(
                 child: Text(
