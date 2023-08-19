@@ -25,6 +25,7 @@ class DBProvider {
     //get location of database
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String path = join(documentsDirectory.path, 'dailyfocus.db');
+    // deleteDatabase(path);
 
     //open database
     return await openDatabase(path, version: _version, onOpen: (db) {},
@@ -35,7 +36,8 @@ class DBProvider {
         name TEXT,
         goal INTEGER,
         progress REAL,
-        incremental INTEGER
+        incremental INTEGER,
+        iconPoint INTEGER
       )
     ''');
     });

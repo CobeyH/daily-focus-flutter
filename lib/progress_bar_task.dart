@@ -18,11 +18,17 @@ class ProgressBarTask extends ConsumerWidget {
             totalSteps: task.goal,
             padding: task.incremental ? 1 / task.goal : 0,
             currentStep: task.progress.round(),
-            child: Center(
-                child: Text(
-              task.progress.toStringAsFixed(0),
-              style: Theme.of(context).textTheme.titleLarge,
-            )),
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(
+                IconData(task.iconPoint, fontFamily: 'MaterialIcons'),
+                size: 50,
+              ),
+              Text(
+                task.progress.toStringAsFixed(0),
+                style: Theme.of(context).textTheme.titleLarge,
+              )
+            ]),
           ),
         ));
   }

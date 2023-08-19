@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_iconpicker/flutter_iconpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models/task.dart';
@@ -68,6 +69,16 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
     );
   }
 
+  _pickIcon() async {
+    IconData? pickedIcon = (await FlutterIconPicker.showIconPicker(context,
+        iconPackModes: [IconPack.material]));
+    if (pickedIcon != null) {
+      setState(() {
+        _formValues.iconPoint = pickedIcon.codePoint;
+      });
+    }
+  }
+
   Widget formFields() {
     return Column(
       children: [
@@ -88,6 +99,17 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
                   ? null
                   : 'Please enter a number',
         ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              IconData(_formValues.iconPoint, fontFamily: 'MaterialIcons'),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(onPressed: _pickIcon, child: const Text("Pick Icon"))
+          ],
+        )
       ],
     );
   }

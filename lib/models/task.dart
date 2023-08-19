@@ -6,6 +6,7 @@ class Task {
   int goal;
   double progress;
   bool incremental;
+  int iconPoint;
 
   Task({
     required this.uuid,
@@ -13,6 +14,7 @@ class Task {
     required this.goal,
     required this.progress,
     required this.incremental,
+    required this.iconPoint,
   });
 
   Task.empty()
@@ -20,7 +22,8 @@ class Task {
         goal = 1,
         progress = 0.0,
         incremental = false,
-        uuid = const Uuid().v4().toString();
+        uuid = const Uuid().v4().toString(),
+        iconPoint = 0;
 
   Map<String, dynamic> toJson() {
     return {
@@ -29,6 +32,7 @@ class Task {
       'goal': goal,
       'progress': progress,
       'incremental': incremental ? 1 : 0, //SQFLite doesn't support bools
+      'iconPoint': iconPoint,
     };
   }
 
@@ -39,6 +43,7 @@ class Task {
       goal: json['goal'],
       progress: json['progress'],
       incremental: json['incremental'] == 1 ? true : false,
+      iconPoint: json['iconPoint'],
     );
   }
 }

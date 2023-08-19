@@ -23,7 +23,8 @@ class ActiveTask extends _$ActiveTask {
         progress: state!.progress + 1,
         uuid: state!.uuid,
         name: state!.name,
-        incremental: state!.incremental);
+        incremental: state!.incremental,
+        iconPoint: state!.iconPoint);
     ref.read(tasksProvider.notifier).updateTask(state!);
   }
 
