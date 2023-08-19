@@ -1,37 +1,35 @@
-import 'package:path/path.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+
+const int _version = 2;
 
 class DBProvider {
-  DBProvider._internal() {
-    if (_database == null) database;
-  }
-  static final DBProvider instance = DBProvider._internal();
+// make this a singleton class
+  DBProvider._privateConstructor();
+  static final DBProvider instance = DBProvider._privateConstructor();
 
-  /// sqflite datbase instance
+// only have a single app-wide reference to the database
   static Database? _database;
-
-  /// gets database instance
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB();
-    return _database!;
-  }
+  Future<Database> get database async => _database ??= await _initDB();
 
   /// initialize the database
   Future<Database> _initDB() async {
-    print('creating databse');
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'dailyfocus.db');
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDatabase,
-    );
+    print('creating database');
+    return await _createDatabase();
   }
 
-  Future<void> _createDatabase(Database db, int version) async {
-    await db.execute('''
+  // Future<void> _createDatabase(Database db, int version) async {}
+  Future<Database> _createDatabase() async {
+    //get location of database
+    Directory documentsDirectory = await getApplicationDocumentsDirectory();
+    String path = join(documentsDirectory.path, 'dailyfocus.db');
+
+    //open database
+    return await openDatabase(path, version: _version, onOpen: (db) {},
+        onCreate: (Database db, int version) async {
+      await db.execute('''
       CREATE TABLE tasks(
         uuid TEXT PRIMARY KEY,
         name TEXT,
@@ -40,5 +38,6 @@ class DBProvider {
         incremental INTEGER
       )
     ''');
+    });
   }
 }
