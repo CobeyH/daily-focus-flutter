@@ -20,7 +20,7 @@ class Task {
         goal = 1,
         progress = 0.0,
         incremental = false,
-        uuid = const Uuid().v4();
+        uuid = const Uuid().v4().toString();
 
   Map<String, dynamic> toJson() {
     return {
