@@ -1,12 +1,12 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of '../providers/task_provider.dart';
+part of 'task_provider.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$tasksHash() => r'70bfca3461e834889196fdbf8dc4a32cfa8ddb4d';
+String _$tasksHash() => r'd4ccf81bc797f086f686a0d11549950ace4ad9e5';
 
 /// See also [Tasks].
 @ProviderFor(Tasks)

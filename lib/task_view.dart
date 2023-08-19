@@ -2,7 +2,6 @@ import 'package:daily_focus/providers/active_task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'models/task.dart';
 import 'play_button.dart';
 import 'progress_bar_task.dart';
 
@@ -11,7 +10,8 @@ class TaskView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    Task task = ref.watch(activeTaskProvider)!;
+    final task = ref.watch(activeTaskProvider);
+    if (task == null) return const Center(child: Text('No task selected'));
     return Scaffold(
       appBar: AppBar(
         title: Text(task.name),
@@ -19,7 +19,6 @@ class TaskView extends ConsumerWidget {
       body: Center(
         child: Column(
           children: [
-            Text(task.progress.toStringAsFixed(0)),
             Hero(
               tag: task.uuid,
               child: ProgressBarTask(key: UniqueKey(), task: task),
