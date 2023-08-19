@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'package:daily_focus/providers/active_task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models/task.dart';
-import 'providers/task_provider.dart';
 
 class PlayButton extends ConsumerStatefulWidget {
   final Task activeTask;
@@ -25,10 +25,7 @@ class PlayButtonState extends ConsumerState<PlayButton> {
 
   void startTimer() {
     timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(
-        () => widget.activeTask.progress += 1,
-      );
-      ref.watch(tasksProvider.notifier).updateTask(widget.activeTask);
+      ref.watch(activeTaskProvider.notifier).increment();
     });
   }
 

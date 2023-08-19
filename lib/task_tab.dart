@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:daily_focus/providers/active_task_provider.dart';
 import 'package:daily_focus/task_creation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,7 @@ import 'task_view.dart';
 class TaskTab extends ConsumerWidget {
   const TaskTab({Key? key}) : super(key: key);
 
-  Widget _getTaskGrid(BuildContext context, List<Task> tasks) {
+  Widget _getTaskGrid(BuildContext context, List<Task> tasks, WidgetRef ref) {
     if (tasks.isEmpty) {
       return const Center(child: Text('No tasks yet'));
     }
@@ -33,7 +34,7 @@ class TaskTab extends ConsumerWidget {
                       style: ButtonStyle(
                           overlayColor: MaterialStateProperty.all<Color>(
                               Colors.transparent)),
-                      onPressed: () => onTapProgressBar(context, e),
+                      onPressed: () => onTapProgressBar(context, e, ref),
                       child: Hero(tag: e.uuid, child: ProgressBarTask(task: e)),
                     ))
                   ],
@@ -43,10 +44,11 @@ class TaskTab extends ConsumerWidget {
     );
   }
 
-  onTapProgressBar(BuildContext context, Task task) async {
+  onTapProgressBar(BuildContext context, Task task, WidgetRef ref) async {
+    ref.read(activeTaskProvider.notifier).setActive(task);
     Navigator.push(context, MaterialPageRoute<void>(
       builder: (BuildContext context) {
-        return TaskView(task: task);
+        return const TaskView();
       },
     ));
   }
@@ -55,7 +57,7 @@ class TaskTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
         body: ref.watch(tasksProvider).when(
-            data: (tasks) => _getTaskGrid(context, tasks),
+            data: (tasks) => _getTaskGrid(context, tasks, ref),
             error: (e, _) => Text(e.toString()),
             loading: () => const Center(child: CircularProgressIndicator())),
         floatingActionButton: const TaskCreation());

@@ -26,11 +26,4 @@ class Tasks extends _$Tasks {
         .toList());
     await TasksDatabase.dbProvider.updateTask(task);
   }
-
-  void delete(String taskId) {
-    state = AsyncData((state.value ?? [])
-        .where((element) => element.uuid != taskId)
-        .toList());
-    TasksDatabase.dbProvider.deleteTask(taskId);
-  }
 }

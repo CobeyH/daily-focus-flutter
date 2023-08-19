@@ -1,4 +1,4 @@
-import 'package:daily_focus/providers/task_provider.dart';
+import 'package:daily_focus/providers/active_task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,35 +6,31 @@ import 'models/task.dart';
 import 'play_button.dart';
 import 'progress_bar_task.dart';
 
-class TaskView extends ConsumerStatefulWidget {
-  final Task task;
-  const TaskView({Key? key, required this.task}) : super(key: key);
+class TaskView extends ConsumerWidget {
+  const TaskView({super.key});
 
   @override
-  TaskViewState createState() => TaskViewState();
-}
-
-class TaskViewState extends ConsumerState<TaskView> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    Task task = ref.watch(activeTaskProvider)!;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.task.name),
+        title: Text(task.name),
       ),
       body: Center(
         child: Column(
           children: [
+            Text(task.progress.toStringAsFixed(0)),
             Hero(
-              tag: widget.task.uuid,
-              child: ProgressBarTask(task: widget.task),
+              tag: task.uuid,
+              child: ProgressBarTask(key: UniqueKey(), task: task),
             ),
-            PlayButton(activeTask: widget.task),
+            PlayButton(activeTask: task),
             ButtonBar(
               alignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
                     onPressed: () {
-                      ref.read(tasksProvider.notifier).delete(widget.task.uuid);
+                      ref.read(activeTaskProvider.notifier).delete();
                       Navigator.pop(context);
                     },
                     child: const Icon(Icons.delete)),
