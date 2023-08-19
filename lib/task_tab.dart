@@ -28,13 +28,14 @@ class TaskTab extends ConsumerWidget {
             .map((e) => Column(
                   children: [
                     Text(e.name),
-                    TextButton(
+                    Expanded(
+                        child: TextButton(
                       style: ButtonStyle(
                           overlayColor: MaterialStateProperty.all<Color>(
                               Colors.transparent)),
                       onPressed: () => onTapProgressBar(context, e),
                       child: Hero(tag: e.uuid, child: ProgressBarTask(task: e)),
-                    )
+                    ))
                   ],
                 ))
             .toList(),

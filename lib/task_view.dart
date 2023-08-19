@@ -23,11 +23,9 @@ class TaskViewState extends ConsumerState<TaskView> {
       body: Center(
         child: Column(
           children: [
-            Expanded(
-              child: Hero(
-                tag: widget.task.uuid,
-                child: ProgressBarTask(task: widget.task),
-              ),
+            Hero(
+              tag: widget.task.uuid,
+              child: ProgressBarTask(task: widget.task),
             ),
             ElevatedButton(
                 onPressed: () => {print("Implement me")},

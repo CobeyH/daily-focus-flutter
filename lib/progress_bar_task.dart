@@ -10,10 +10,10 @@ class ProgressBarTask extends StatefulWidget {
   const ProgressBarTask({Key? key, required this.task}) : super(key: key);
 
   @override
-  _ProgressBarTaskState createState() => _ProgressBarTaskState();
+  ProgressBarTaskState createState() => ProgressBarTaskState();
 }
 
-class _ProgressBarTaskState extends State<ProgressBarTask> {
+class ProgressBarTaskState extends State<ProgressBarTask> {
   late Task _task;
 
   @override
