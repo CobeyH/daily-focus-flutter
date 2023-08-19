@@ -1,7 +1,7 @@
-import 'package:daily_focus/providers/task_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../database/task_database.dart';
 import '../models/task.dart';
 
 part 'task_provider.g.dart';

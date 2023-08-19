@@ -1,6 +1,5 @@
-import 'package:daily_focus/providers/db_provider.dart';
-
 import '../models/task.dart';
+import 'db_provider.dart';
 
 class TasksDatabase {
   static final TasksDatabase dbProvider = TasksDatabase._();
