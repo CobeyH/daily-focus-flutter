@@ -21,7 +21,9 @@ class TaskView extends ConsumerWidget {
           children: [
             Hero(
               tag: task.uuid,
-              child: ProgressBarTask(key: UniqueKey(), task: task),
+              child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: ProgressBarTask(key: UniqueKey(), task: task)),
             ),
             PlayButton(activeTask: task),
             ButtonBar(
