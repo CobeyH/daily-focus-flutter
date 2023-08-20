@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_iconpicker/flutter_iconpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'models/task.dart';
-import 'providers/task_provider.dart';
+import '../models/task.dart';
+import '../providers/task_provider.dart';
 
 class TaskCreation extends ConsumerStatefulWidget {
   const TaskCreation({Key? key}) : super(key: key);
@@ -16,55 +16,28 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
   final _formKey = GlobalKey<FormState>();
   final Task _formValues = Task.empty();
 
-  Future<void> _dialogBuilder(BuildContext context) {
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Create a new task'),
-          content: Form(key: _formKey, child: formFields()),
-          actions: <Widget>[
-            TextButton(
-              style: TextButton.styleFrom(
-                textStyle: Theme.of(context).textTheme.labelLarge,
-              ),
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                textStyle: Theme.of(context).textTheme.labelLarge,
-              ),
-              child: const Text('Save'),
-              onPressed: () {
-                _saveForm();
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _saveForm() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
     ref.read(tasksProvider.notifier).createNew(_formValues);
+    Navigator.of(context).pop();
   }
 
   Widget customRadioButton(String text, int index) {
     return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: (_formValues.incremental ? index == 1 : index == 0)
+            ? Colors.lightGreenAccent
+            : Colors.white,
+      ),
       onPressed: () {
         setState(() {
-          _formValues.incremental = index == 0 ? true : false;
+          _formValues.incremental = index == 0 ? false : true;
         });
       },
       child: Text(
         text,
-        style: TextStyle(
-          color: (_formValues.incremental) ? Colors.green : Colors.black,
-        ),
       ),
     );
   }
@@ -82,19 +55,21 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
   Widget formFields() {
     return Column(
       children: [
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Row(children: [
           customRadioButton("Timer", 0),
+          const SizedBox(width: 10),
           customRadioButton("Incremental", 1)
         ]),
         TextFormField(
           decoration: const InputDecoration(label: Text("Name")),
           onChanged: (newValue) => _formValues.name = newValue,
+          validator: (value) => value!.isEmpty ? 'Enter a name' : null,
         ),
         TextFormField(
           decoration: const InputDecoration(label: Text("Goal")),
           onChanged: (newValue) => _formValues.goal = int.parse(newValue),
           validator: (newValue) => newValue!.isEmpty
-              ? 'Please enter a goal'
+              ? 'Enter a goal'
               : newValue.contains(RegExp(r'[0-9]'))
                   ? null
                   : 'Please enter a number',
@@ -103,9 +78,10 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              IconData(_formValues.iconPoint, fontFamily: 'MaterialIcons'),
-            ),
+            if (_formValues.iconPoint != null)
+              Icon(
+                IconData(_formValues.iconPoint!, fontFamily: 'MaterialIcons'),
+              ),
             const SizedBox(width: 10),
             ElevatedButton(onPressed: _pickIcon, child: const Text("Pick Icon"))
           ],
@@ -116,9 +92,16 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton(
-      onPressed: () => _dialogBuilder(context),
-      child: const Icon(Icons.add),
-    );
+    return Scaffold(
+        appBar: AppBar(
+          title: const Text('Create a new task'),
+        ),
+        body: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Form(key: _formKey, child: formFields())),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _saveForm(),
+          child: const Icon(Icons.save),
+        ));
   }
 }

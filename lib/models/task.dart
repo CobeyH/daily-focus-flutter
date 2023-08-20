@@ -6,7 +6,7 @@ class Task {
   int goal;
   int progress;
   bool incremental;
-  int iconPoint;
+  int? iconPoint;
 
   Task({
     required this.uuid,
@@ -14,7 +14,7 @@ class Task {
     required this.goal,
     required this.progress,
     required this.incremental,
-    required this.iconPoint,
+    this.iconPoint,
   });
 
   Task.empty()
@@ -22,8 +22,7 @@ class Task {
         goal = 1,
         progress = 0,
         incremental = false,
-        uuid = const Uuid().v4().toString(),
-        iconPoint = 0;
+        uuid = const Uuid().v4().toString();
 
   Map<String, dynamic> toJson() {
     return {

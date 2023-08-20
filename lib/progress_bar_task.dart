@@ -44,11 +44,12 @@ class ProgressBarTask extends ConsumerWidget {
         padding: task.incremental ? 1 / task.goal : 0,
         currentStep: task.progress.round(),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(
-            IconData(task.iconPoint, fontFamily: 'MaterialIcons'),
-            color: Colors.black,
-            size: 50,
-          ),
+          if (task.iconPoint != null)
+            Icon(
+              IconData(task.iconPoint!, fontFamily: 'MaterialIcons'),
+              color: Colors.black,
+              size: 50,
+            ),
           if (!isComplete) progressText,
         ]),
       ),
