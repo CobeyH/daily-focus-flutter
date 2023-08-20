@@ -10,6 +10,15 @@ class ProgressBarTask extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    bool isComplete = task.progress >= task.goal;
+
+    Text progressText = Text(
+      task.incremental
+          ? '${(task.goal - task.progress)} Left'
+          : task.progress.toStringAsFixed(0),
+      style: Theme.of(context).textTheme.titleLarge,
+    );
+
     return AspectRatio(
         aspectRatio: 1,
         child: Padding(
@@ -24,10 +33,7 @@ class ProgressBarTask extends ConsumerWidget {
                 IconData(task.iconPoint, fontFamily: 'MaterialIcons'),
                 size: 50,
               ),
-              Text(
-                task.progress.toStringAsFixed(0),
-                style: Theme.of(context).textTheme.titleLarge,
-              )
+              if (!isComplete) progressText,
             ]),
           ),
         ));

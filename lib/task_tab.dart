@@ -18,17 +18,18 @@ class TaskTab extends ConsumerWidget {
       return const Center(child: Text('No tasks yet'));
     }
     double width = MediaQuery.of(context).size.width;
-    int columnCount = max(width ~/ 200, 1);
+    int columnCount = max(width ~/ 195, 1);
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: GridView.count(
         crossAxisCount: columnCount,
-        mainAxisSpacing: 30,
-        crossAxisSpacing: 30,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
         children: tasks
             .map((e) => Column(
                   children: [
-                    Text(e.name),
+                    Text(e.name,
+                        style: Theme.of(context).textTheme.titleMedium),
                     Expanded(
                         child: TextButton(
                       style: ButtonStyle(

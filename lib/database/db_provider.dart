@@ -35,7 +35,7 @@ class DBProvider {
         uuid TEXT PRIMARY KEY,
         name TEXT,
         goal INTEGER,
-        progress REAL,
+        progress INTEGER,
         incremental INTEGER,
         iconPoint INTEGER
       )

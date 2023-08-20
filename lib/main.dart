@@ -1,6 +1,7 @@
 import 'package:daily_focus/page_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,9 @@ class MyApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.amber),
             primaryColor: Colors.amber[800],
             useMaterial3: true,
+            textTheme: GoogleFonts.rowdiesTextTheme(
+              Theme.of(context).textTheme,
+            ),
           ),
           home: const PageRouter()),
     );

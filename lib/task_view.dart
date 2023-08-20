@@ -14,7 +14,7 @@ class TaskView extends ConsumerWidget {
     if (task == null) return const Center(child: Text('No task selected'));
     return Scaffold(
       appBar: AppBar(
-        title: Text(task.name),
+        title: Text(task.name, style: Theme.of(context).textTheme.titleLarge),
       ),
       body: Center(
         child: Column(

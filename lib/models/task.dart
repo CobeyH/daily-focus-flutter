@@ -4,7 +4,7 @@ class Task {
   String uuid;
   String name;
   int goal;
-  double progress;
+  int progress;
   bool incremental;
   int iconPoint;
 
@@ -20,7 +20,7 @@ class Task {
   Task.empty()
       : name = "Test Task",
         goal = 1,
-        progress = 0.0,
+        progress = 0,
         incremental = false,
         uuid = const Uuid().v4().toString(),
         iconPoint = 0;
