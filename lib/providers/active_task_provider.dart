@@ -12,7 +12,7 @@ class ActiveTask extends _$ActiveTask {
     return null;
   }
 
-  void setActive(Task? task) {
+  void setActive(Task task) {
     state = task;
   }
 

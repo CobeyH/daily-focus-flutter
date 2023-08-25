@@ -43,6 +43,7 @@ dependencies:
   path: ^1.8.2
   flutter_iconpicker: ^3.2.4
   google_fonts: ^5.1.0
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:

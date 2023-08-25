@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:daily_focus/daily_reset_utils.dart';
 import 'package:daily_focus/providers/active_task_provider.dart';
 import 'package:daily_focus/task_creation/task_creation_button.dart';
 import 'package:flutter/material.dart';
@@ -36,7 +37,10 @@ class TaskTab extends ConsumerWidget {
                           overlayColor: MaterialStateProperty.all<Color>(
                               Colors.transparent)),
                       onPressed: () => onTapProgressBar(context, e, ref),
-                      child: Hero(tag: e.uuid, child: ProgressBarTask(task: e)),
+                      child: Hero(
+                        tag: e.uuid,
+                        child: ProgressBarTask(task: e),
+                      ),
                     ))
                   ],
                 ))
@@ -56,6 +60,7 @@ class TaskTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    checkAndResetTasks(ref);
     return Scaffold(
         body: ref.watch(tasksProvider).when(
             data: (tasks) => _getTaskGrid(context, tasks, ref),

@@ -43,6 +43,7 @@ class ProgressBarTask extends ConsumerWidget {
         totalSteps: task.goal,
         padding: task.incremental ? 1 / task.goal : 0,
         currentStep: task.progress.round(),
+        roundedCap: (step, _) => true,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           if (task.iconPoint != null)
             Icon(
@@ -50,7 +51,12 @@ class ProgressBarTask extends ConsumerWidget {
               color: Colors.black,
               size: 50,
             ),
-          if (!isComplete) progressText,
+          isComplete
+              ? const Icon(
+                  Icons.check,
+                  color: Colors.green,
+                )
+              : progressText,
         ]),
       ),
     );

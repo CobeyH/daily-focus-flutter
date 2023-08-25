@@ -6,7 +6,8 @@ import '../models/task.dart';
 import '../providers/task_provider.dart';
 
 class TaskCreation extends ConsumerStatefulWidget {
-  const TaskCreation({Key? key}) : super(key: key);
+  final Task? task;
+  const TaskCreation({Key? key, this.task}) : super(key: key);
 
   @override
   TaskCreationState createState() => TaskCreationState();
@@ -14,14 +15,26 @@ class TaskCreation extends ConsumerStatefulWidget {
 
 class TaskCreationState extends ConsumerState<TaskCreation> {
   final _formKey = GlobalKey<FormState>();
-  final Task _formValues = Task.empty();
+  late Task _formValues;
+  late bool _isNew;
+
+  @override
+  void initState() {
+    super.initState();
+    _isNew = widget.task == null;
+    _formValues = widget.task ?? Task.empty();
+  }
 
   void _saveForm() {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    ref.read(tasksProvider.notifier).createNew(_formValues);
-    Navigator.of(context).pop();
+    if (_isNew) {
+      ref.read(tasksProvider.notifier).createNew(_formValues);
+    } else {
+      ref.read(tasksProvider.notifier).updateTask(_formValues);
+    }
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Widget customRadioButton(String text, int index) {
@@ -64,13 +77,16 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
           decoration: const InputDecoration(label: Text("Name")),
           onChanged: (newValue) => _formValues.name = newValue,
           validator: (value) => value!.isEmpty ? 'Enter a name' : null,
+          initialValue: _formValues.name,
         ),
         TextFormField(
           decoration: const InputDecoration(label: Text("Goal")),
-          onChanged: (newValue) => _formValues.goal = int.parse(newValue),
+          onChanged: (newValue) =>
+              _formValues.goal = int.tryParse(newValue) ?? 0,
+          initialValue: _formValues.goal.toString(),
           validator: (newValue) => newValue!.isEmpty
               ? 'Enter a goal'
-              : newValue.contains(RegExp(r'[0-9]'))
+              : int.tryParse(newValue) != null
                   ? null
                   : 'Please enter a number',
         ),

@@ -5,8 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // await DBProvider.instance.database;
-
   runApp(const MyApp());
 }
 

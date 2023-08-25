@@ -22,7 +22,7 @@ class Tasks extends _$Tasks {
 
   void updateTask(Task task) async {
     state = AsyncData((state.value ?? [])
-        .map((element) => element.uuid == task.uuid ? task : element)
+        .map((t) => t.uuid == task.uuid ? task : t)
         .toList());
     await TasksDatabase.dbProvider.updateTask(task);
   }
@@ -32,5 +32,12 @@ class Tasks extends _$Tasks {
         .where((element) => element.uuid != task.uuid)
         .toList());
     TasksDatabase.dbProvider.deleteTask(task.uuid);
+  }
+
+  void resetAll() {
+    for (Task task in state.value ?? []) {
+      task.progress = 0;
+      updateTask(task);
+    }
   }
 }
