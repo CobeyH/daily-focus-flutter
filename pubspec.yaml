@@ -44,6 +44,7 @@ dependencies:
   flutter_iconpicker: ^3.2.4
   google_fonts: ^5.1.0
   shared_preferences: ^2.2.0
+  flutter_local_notifications: ^15.1.1
 
 dev_dependencies:
   flutter_test:
