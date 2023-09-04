@@ -40,6 +40,18 @@ class DBProvider {
         iconPoint INTEGER
       )
     ''');
+
+      await db.execute('''
+      CREATE TABLE saves(
+        uuid TEXT PRIMARY KEY,
+        name TEXT,
+        goal INTEGER,
+        progress INTEGER,
+        incremental INTEGER,
+        iconPoint INTEGER,
+        date TEXT
+      )
+    ''');
     });
   }
 }

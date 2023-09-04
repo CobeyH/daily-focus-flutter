@@ -20,6 +20,7 @@ Future<void> checkAndResetTasks(WidgetRef ref) async {
       currentDate.year != lastResetDate.year) {
     // A new day has arrived, reset your tasks here
     // For example, you can call a function to reset tasks
+    ref.read(tasksProvider.notifier).saveAll();
     ref.read(tasksProvider.notifier).resetAll();
 
     // Store the current date as the new last reset date
