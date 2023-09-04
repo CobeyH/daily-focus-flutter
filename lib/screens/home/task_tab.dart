@@ -6,10 +6,10 @@ import 'package:daily_focus/screens/task_creation/task_creation_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/task.dart';
-import 'progress_bar_task.dart';
-import '../providers/task_provider.dart';
-import 'task_view.dart';
+import '../../models/task.dart';
+import '../single_task/progress_bar_task.dart';
+import '../../providers/task_provider.dart';
+import '../single_task/task_view.dart';
 
 class TaskTab extends ConsumerWidget {
   const TaskTab({Key? key}) : super(key: key);

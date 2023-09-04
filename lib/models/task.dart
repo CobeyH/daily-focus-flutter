@@ -18,8 +18,8 @@ class Task {
   });
 
   Task.empty()
-      : name = "Test Task",
-        goal = 1,
+      : name = "",
+        goal = 0,
         progress = 0,
         incremental = false,
         uuid = const Uuid().v4().toString();

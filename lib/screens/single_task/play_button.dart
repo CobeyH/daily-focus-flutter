@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:daily_focus/providers/active_task_provider.dart';
-import 'package:daily_focus/screens/notification_task_finished.dart';
+import 'package:daily_focus/notification_task_finished.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/task.dart';
+import '../../models/task.dart';
 
 class PlayButton extends ConsumerStatefulWidget {
   final Task activeTask;
@@ -45,6 +45,14 @@ class PlayButtonState extends ConsumerState<PlayButton> {
     }
   }
 
+  IconData getIcon() {
+    return isPlaying
+        ? Icons.pause
+        : widget.activeTask.incremental
+            ? Icons.fast_forward
+            : Icons.play_arrow;
+  }
+
   @override
   Widget build(BuildContext context) {
     final task = ref.watch(activeTaskProvider);
@@ -67,7 +75,7 @@ class PlayButtonState extends ConsumerState<PlayButton> {
       },
       style: ElevatedButton.styleFrom(
           backgroundColor: finished ? Colors.grey : Colors.lightGreen),
-      child: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
+      child: Icon(getIcon()),
     );
   }
 }
