@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_iconpicker/flutter_iconpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/task.dart';
-import '../providers/task_provider.dart';
+import '../../models/task.dart';
+import '../../providers/task_provider.dart';
 
 class TaskCreation extends ConsumerStatefulWidget {
   final Task? task;

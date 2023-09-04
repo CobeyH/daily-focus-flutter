@@ -2,13 +2,13 @@ import 'dart:math';
 
 import 'package:daily_focus/daily_reset_utils.dart';
 import 'package:daily_focus/providers/active_task_provider.dart';
-import 'package:daily_focus/task_creation/task_creation_button.dart';
+import 'package:daily_focus/screens/task_creation/task_creation_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'models/task.dart';
+import '../models/task.dart';
 import 'progress_bar_task.dart';
-import 'providers/task_provider.dart';
+import '../providers/task_provider.dart';
 import 'task_view.dart';
 
 class TaskTab extends ConsumerWidget {

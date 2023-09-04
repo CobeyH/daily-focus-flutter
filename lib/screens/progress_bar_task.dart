@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:step_progress_indicator/step_progress_indicator.dart';
 
-import 'models/task.dart';
+import '../models/task.dart';
 
 class ProgressBarTask extends ConsumerWidget {
   final Task task;

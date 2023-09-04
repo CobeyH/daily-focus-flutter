@@ -2,7 +2,7 @@ import 'package:daily_focus/providers/active_task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'models/task.dart';
+import '../models/task.dart';
 import 'play_button.dart';
 import 'progress_bar_task.dart';
 import 'task_creation/task_creation.dart';

@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:daily_focus/providers/active_task_provider.dart';
+import 'package:daily_focus/screens/notification_task_finished.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'models/task.dart';
+import '../models/task.dart';
 
 class PlayButton extends ConsumerStatefulWidget {
   final Task activeTask;
@@ -52,6 +53,7 @@ class PlayButtonState extends ConsumerState<PlayButton> {
       if (finished) {
         stopTimer();
         isPlaying = false;
+        showNotification();
       }
     });
     return ElevatedButton(
