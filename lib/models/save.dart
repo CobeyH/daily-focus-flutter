@@ -25,6 +25,17 @@ class Save extends Task {
     };
   }
 
+  factory Save.fromTask(Task t) {
+    return Save(
+      uuid: t.uuid,
+      name: t.name,
+      goal: t.goal,
+      progress: t.progress,
+      incremental: t.incremental,
+      date: DateTime.now(),
+    );
+  }
+
   @override
   factory Save.fromJson(Map<String, dynamic> json) {
     return Save(
