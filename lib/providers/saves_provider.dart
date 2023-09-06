@@ -30,11 +30,11 @@ class Saves extends _$Saves {
     await SavesDatabase.dbProvider.insertSave(task);
   }
 
-  void updateSave(Save task) async {
-    state = AsyncData((state.value ?? [])
-        .map((t) => t.uuid == task.uuid ? task : t)
-        .toList());
-    await SavesDatabase.dbProvider.updateSave(task);
+  List<Save> lastWeek() {
+    List<Save> allSaves = state.value ?? [];
+    DateTime oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
+    allSaves = allSaves.where((Save s) => s.date.isAfter(oneWeekAgo)).toList();
+    return allSaves;
   }
 
   void delete(Save task) {

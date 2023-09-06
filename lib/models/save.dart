@@ -26,13 +26,14 @@ class Save extends Task {
   }
 
   factory Save.fromTask(Task t) {
+    DateTime now = DateTime.now();
     return Save(
       uuid: t.uuid,
       name: t.name,
       goal: t.goal,
       progress: t.progress,
       incremental: t.incremental,
-      date: DateTime.now(),
+      date: DateTime(now.year, now.month, now.day),
     );
   }
 
