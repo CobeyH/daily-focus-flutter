@@ -14,10 +14,10 @@ class Tasks extends _$Tasks {
     return await db.getAllTasks();
   }
 
-  void createNew(Task task) {
+  void createNew(Task task) async {
     task.uuid = const Uuid().v4().toString();
     state = AsyncData([...state.value ?? [], task]);
-    TasksDatabase.dbProvider.insertTask(task);
+    await TasksDatabase.dbProvider.insertTask(task);
   }
 
   void updateTask(Task task) async {
@@ -33,6 +33,8 @@ class Tasks extends _$Tasks {
         .toList());
     TasksDatabase.dbProvider.deleteTask(task.uuid);
   }
+
+  void saveAll() {}
 
   void resetAll() {
     for (Task task in state.value ?? []) {

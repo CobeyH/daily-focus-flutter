@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'analytics_tab.dart';
+import 'analytics/analytics_tab.dart';
 import 'settings_tab.dart';
-import 'task_tab.dart';
+import 'home/task_tab.dart';
 
 class PageRouter extends StatefulWidget {
   const PageRouter({super.key});
