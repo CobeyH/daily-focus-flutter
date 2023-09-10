@@ -53,7 +53,7 @@ class PlayButtonState extends ConsumerState<PlayButton> {
       if (finished) {
         stopTimer();
         isPlaying = false;
-        showNotification();
+        showNotification(widget.activeTask);
       }
     });
     return ElevatedButton(
