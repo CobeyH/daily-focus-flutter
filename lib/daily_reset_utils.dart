@@ -15,8 +15,9 @@ Future<void> resetTasks(WidgetRef ref, DateTime currentDate) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   // A new day has arrived, reset your tasks here
   // For example, you can call a function to reset tasks
-  ref.read(tasksProvider.notifier).saveAll();
-  ref.read(tasksProvider.notifier).resetAll();
+  final tasks = await ref.read(tasksProvider.future);
+  await ref.read(tasksProvider.notifier).saveAll();
+  await ref.read(tasksProvider.notifier).resetAll();
 
   // Store the current date as the new last reset date
   await prefs.setInt('lastResetDate', currentDate.millisecondsSinceEpoch);
@@ -34,7 +35,7 @@ Future<void> checkAndResetTasks(WidgetRef ref) async {
   DateTime currentDate = DateTime.now();
   DateTime? lastResetDate = await getLastSaveDate();
   // Compare the current date with the stored date
-  if (isSameDay(currentDate, lastResetDate)) {
+  if (!isSameDay(currentDate, lastResetDate)) {
     await resetTasks(ref, currentDate);
   }
 }

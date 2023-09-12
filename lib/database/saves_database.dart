@@ -1,8 +1,9 @@
 import '../models/save.dart';
 import 'db_provider.dart';
 
+const String savesDbName = "saves";
+
 class SavesDatabase {
-  final String savesDbName = "saves";
   static final SavesDatabase dbProvider = SavesDatabase._();
 
   SavesDatabase._();
@@ -13,9 +14,9 @@ class SavesDatabase {
     return jsonSaves.map((t) => Save.fromJson(t)).toList();
   }
 
-  Future<int> insertSave(Save task) async {
+  Future<int> insertSave(Save save) async {
     final db = await DBProvider.instance.database;
-    return await db.insert(savesDbName, task.toJson());
+    return await db.insert(savesDbName, save.toJson());
   }
 
   Future<int> updateSave(Save task) async {

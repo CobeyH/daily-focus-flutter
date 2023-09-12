@@ -24,7 +24,7 @@ class Saves extends _$Saves {
     }
   }
 
-  void createNew(Save task) async {
+  Future<void> createNew(Save task) async {
     task.uuid = const Uuid().v4().toString();
     state = AsyncData([...state.value ?? [], task]);
     await SavesDatabase.dbProvider.insertSave(task);

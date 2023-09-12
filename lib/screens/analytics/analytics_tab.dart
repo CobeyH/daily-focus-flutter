@@ -14,9 +14,14 @@ class AnalyticsTab extends ConsumerStatefulWidget {
 class AnalyticsTabState extends ConsumerState<AnalyticsTab> {
   @override
   Widget build(BuildContext context) {
-    List<Save> saves = ref.watch(savesProvider.notifier).lastWeek();
-    return ListView(
-      children: saves.map((e) => Text(e.name)).toList(),
-    );
+    final savesFuture = ref.watch(savesProvider);
+
+    return savesFuture.when(
+        data: (List<Save> saves) {
+          if (saves.isEmpty) return const Text("No saves");
+          return ListView(children: saves.map((e) => Text(e.name)).toList());
+        },
+        error: (err, _) => const Text("Error"),
+        loading: () => const CircularProgressIndicator());
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:daily_focus/database/saves_database.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -42,7 +43,7 @@ class DBProvider {
     ''');
 
       await db.execute('''
-      CREATE TABLE saves(
+      CREATE TABLE $savesDbName(
         uuid TEXT PRIMARY KEY,
         name TEXT,
         goal INTEGER,

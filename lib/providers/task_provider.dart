@@ -1,7 +1,9 @@
+import 'package:daily_focus/providers/saves_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/task_database.dart';
+import '../models/save.dart';
 import '../models/task.dart';
 
 part 'task_provider.g.dart';
@@ -20,7 +22,7 @@ class Tasks extends _$Tasks {
     await TasksDatabase.dbProvider.insertTask(task);
   }
 
-  void updateTask(Task task) async {
+  Future<void> updateTask(Task task) async {
     state = AsyncData((state.value ?? [])
         .map((t) => t.uuid == task.uuid ? task : t)
         .toList());
@@ -34,12 +36,19 @@ class Tasks extends _$Tasks {
     TasksDatabase.dbProvider.deleteTask(task.uuid);
   }
 
-  void saveAll() {}
+  Future<void> saveAll() async {
+    List<Future> futures = [];
+    for (Task task in state.value ?? []) {
+      futures
+          .add(ref.read(savesProvider.notifier).createNew(Save.fromTask(task)));
+    }
+    await Future.wait(futures);
+  }
 
-  void resetAll() {
+  Future<void> resetAll() async {
     for (Task task in state.value ?? []) {
       task.progress = 0;
-      updateTask(task);
+      await updateTask(task);
     }
   }
 }
