@@ -1,29 +1,24 @@
-import 'package:daily_focus/models/task.dart';
+import 'package:daily_focus/models/task.dart' show Task;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-class Save extends Task {
-  final DateTime date;
+part 'generated/save.freezed.dart';
+part 'generated/save.g.dart';
 
-  Save(
-      {required super.uuid,
-      required super.name,
-      required super.goal,
-      required super.progress,
-      required super.incremental,
-      super.iconPoint,
-      required this.date});
+@freezed
+abstract class Save with _$Save {
+  factory Save({
+    required String uuid,
+    required String name,
+    required int goal,
+    required int progress,
+    required bool incremental,
+    int? iconPoint,
+    required DateTime date,
+  }) = _Save;
 
-  @override
-  Map<String, dynamic> toJson() {
-    return {
-      'uuid': uuid,
-      'name': name,
-      'goal': goal,
-      'progress': progress,
-      'incremental': incremental ? 1 : 0, //SQFLite doesn't support bools
-      'iconPoint': iconPoint,
-      'date': date.toIso8601String()
-    };
-  }
+  Save._();
+
+  factory Save.fromJson(Map<String, dynamic> json) => _$SaveFromJson(json);
 
   factory Save.fromTask(Task t) {
     DateTime now = DateTime.now();
@@ -35,17 +30,5 @@ class Save extends Task {
       incremental: t.incremental,
       date: DateTime(now.year, now.month, now.day),
     );
-  }
-
-  @override
-  factory Save.fromJson(Map<String, dynamic> json) {
-    return Save(
-        uuid: json['uuid'],
-        name: json['name'],
-        goal: json['goal'],
-        progress: json['progress'],
-        incremental: json['incremental'] == 1 ? true : false,
-        iconPoint: json['iconPoint'],
-        date: DateTime(json['date']));
   }
 }

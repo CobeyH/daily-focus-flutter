@@ -1,48 +1,31 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:uuid/uuid.dart';
 
-class Task {
-  String uuid;
-  String name;
-  int goal;
-  int progress;
-  bool incremental;
-  int? iconPoint;
+part 'generated/task.freezed.dart';
+part 'generated/task.g.dart';
 
-  Task({
-    required this.uuid,
-    required this.name,
-    required this.goal,
-    required this.progress,
-    required this.incremental,
-    this.iconPoint,
-  });
+@freezed
+abstract class Task with _$Task {
+  factory Task({
+    required String uuid,
+    required String name,
+    required int goal,
+    required int progress,
+    required bool incremental,
+    int? iconPoint,
+  }) = _Task;
 
-  Task.empty()
-      : name = "",
-        goal = 0,
-        progress = 0,
-        incremental = false,
-        uuid = const Uuid().v4().toString();
+  Task._();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'uuid': uuid,
-      'name': name,
-      'goal': goal,
-      'progress': progress,
-      'incremental': incremental ? 1 : 0, //SQFLite doesn't support bools
-      'iconPoint': iconPoint,
-    };
-  }
+  factory Task.fromJson(Map<String, dynamic> json) => _$TaskFromJson(json);
 
-  factory Task.fromJson(Map<String, dynamic> json) {
+  static Task empty() {
     return Task(
-      uuid: json['uuid'],
-      name: json['name'],
-      goal: json['goal'],
-      progress: json['progress'],
-      incremental: json['incremental'] == 1 ? true : false,
-      iconPoint: json['iconPoint'],
+      name: "",
+      goal: 0,
+      progress: 0,
+      incremental: false,
+      uuid: const Uuid().v4().toString(),
     );
   }
 }

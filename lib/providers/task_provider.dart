@@ -17,7 +17,7 @@ class Tasks extends _$Tasks {
   }
 
   void createNew(Task task) async {
-    task.uuid = const Uuid().v4().toString();
+    task = task.copyWith(uuid: const Uuid().v4().toString());
     state = AsyncData([...state.value ?? [], task]);
     await TasksDatabase.dbProvider.insertTask(task);
   }
@@ -47,7 +47,7 @@ class Tasks extends _$Tasks {
 
   Future<void> resetAll() async {
     for (Task task in state.value ?? []) {
-      task.progress = 0;
+      task = task.copyWith(progress: 0);
       await updateTask(task);
     }
   }

@@ -24,10 +24,10 @@ class Saves extends _$Saves {
     }
   }
 
-  Future<void> createNew(Save task) async {
-    task.uuid = const Uuid().v4().toString();
-    state = AsyncData([...state.value ?? [], task]);
-    await SavesDatabase.dbProvider.insertSave(task);
+  Future<void> createNew(Save save) async {
+    save = save.copyWith(uuid: const Uuid().v4().toString());
+    state = AsyncData([...state.value ?? [], save]);
+    await SavesDatabase.dbProvider.insertSave(save);
   }
 
   List<Save> lastWeek() {

@@ -1,0 +1,22 @@
+targets:
+  $default:
+    builders:
+      source_gen|combining_builder:
+        generate_for:
+          - lib/**.dart
+        options:
+          build_extensions:
+            "^lib/models/{{}}.dart": "lib/models/generated/{{}}.g.dart"
+      json_serializable:
+        options:
+          field_rename: snake
+          # create_to_json: false
+      riverpod_generator:
+        enabled: true
+        options:
+          build_extensions:
+      freezed:
+        enabled: true
+        options:
+          build_extensions:
+            "^lib/models/{{}}.dart": "lib/models/generated/{{}}.freezed.dart"

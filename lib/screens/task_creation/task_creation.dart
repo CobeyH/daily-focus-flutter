@@ -4,7 +4,7 @@ import 'package:flutter_iconpicker/flutter_iconpicker.dart'
     as FlutterIconPicker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/task.dart';
+import '../../models/task.dart' show Task;
 import '../../providers/task_provider.dart';
 
 class TaskCreation extends ConsumerStatefulWidget {
@@ -48,7 +48,8 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
       ),
       onPressed: () {
         setState(() {
-          _formValues.incremental = index == 0 ? false : true;
+          _formValues =
+              _formValues.copyWith(incremental: index == 0 ? false : true);
         });
       },
       child: Text(
@@ -57,15 +58,15 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
     );
   }
 
-  // _pickIcon() async {
-  //   IconData? pickedIcon = (await FlutterIconPicker.showIconPicker(context,
-  //       iconPackModes: [IconPack.material]));
-  //   if (pickedIcon != null) {
-  //     setState(() {
-  //       _formValues.iconPoint = pickedIcon.codePoint;
-  //     });
-  //   }
-  // }
+  _pickIcon() async {
+    IconData? pickedIcon = (await FlutterIconPicker.showIconPicker(context,
+        iconPackModes: [IconPack.material]));
+    if (pickedIcon != null) {
+      setState(() {
+        _formValues = _formValues.copyWith(iconPoint: pickedIcon.codePoint);
+      });
+    }
+  }
 
   Widget formFields() {
     return Column(
@@ -77,14 +78,15 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
         ]),
         TextFormField(
           decoration: const InputDecoration(label: Text("Name")),
-          onChanged: (newValue) => _formValues.name = newValue,
+          onChanged: (newValue) =>
+              _formValues = _formValues.copyWith(name: newValue),
           validator: (value) => value!.isEmpty ? 'Enter a name' : null,
           initialValue: _formValues.name,
         ),
         TextFormField(
           decoration: const InputDecoration(label: Text("Goal")),
-          onChanged: (newValue) =>
-              _formValues.goal = int.tryParse(newValue) ?? 0,
+          onChanged: (newValue) => _formValues =
+              _formValues.copyWith(goal: int.tryParse(newValue) ?? 0),
           initialValue: _formValues.goal.toString(),
           validator: (newValue) => newValue!.isEmpty
               ? 'Enter a goal'
@@ -101,7 +103,7 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
                 IconData(_formValues.iconPoint!, fontFamily: 'MaterialIcons'),
               ),
             const SizedBox(width: 10),
-            // ElevatedButton(onPressed: _pickIcon, child: const Text("Pick Icon"))
+            ElevatedButton(onPressed: _pickIcon, child: const Text("Pick Icon"))
           ],
         )
       ],

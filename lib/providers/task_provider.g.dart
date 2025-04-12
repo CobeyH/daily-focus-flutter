@@ -6,7 +6,7 @@ part of 'task_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$tasksHash() => r'3674406a036e143d30a17c5ad9aed50f703e76c0';
+String _$tasksHash() => r'2d26186e97855b239dad1cf297fd1f0df130b247';
 
 /// See also [Tasks].
 @ProviderFor(Tasks)
@@ -20,4 +20,5 @@ final tasksProvider = AsyncNotifierProvider<Tasks, List<Task>>.internal(
 );
 
 typedef _$Tasks = AsyncNotifier<List<Task>>;
-// ignore_for_file: unnecessary_raw_strings, subtype_of_sealed_class, invalid_use_of_internal_member, do_not_use_environment, prefer_const_constructors, public_member_api_docs, avoid_private_typedef_functions
+// ignore_for_file: type=lint
+// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
