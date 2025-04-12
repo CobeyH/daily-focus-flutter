@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_iconpicker/flutter_iconpicker.dart';
+import 'package:flutter_iconpicker/flutter_iconpicker.dart'
+    as FlutterIconPicker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/task.dart';
@@ -7,7 +9,7 @@ import '../../providers/task_provider.dart';
 
 class TaskCreation extends ConsumerStatefulWidget {
   final Task? task;
-  const TaskCreation({Key? key, this.task}) : super(key: key);
+  const TaskCreation({super.key, this.task});
 
   @override
   TaskCreationState createState() => TaskCreationState();
@@ -55,15 +57,15 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
     );
   }
 
-  _pickIcon() async {
-    IconData? pickedIcon = (await FlutterIconPicker.showIconPicker(context,
-        iconPackModes: [IconPack.material]));
-    if (pickedIcon != null) {
-      setState(() {
-        _formValues.iconPoint = pickedIcon.codePoint;
-      });
-    }
-  }
+  // _pickIcon() async {
+  //   IconData? pickedIcon = (await FlutterIconPicker.showIconPicker(context,
+  //       iconPackModes: [IconPack.material]));
+  //   if (pickedIcon != null) {
+  //     setState(() {
+  //       _formValues.iconPoint = pickedIcon.codePoint;
+  //     });
+  //   }
+  // }
 
   Widget formFields() {
     return Column(
@@ -99,7 +101,7 @@ class TaskCreationState extends ConsumerState<TaskCreation> {
                 IconData(_formValues.iconPoint!, fontFamily: 'MaterialIcons'),
               ),
             const SizedBox(width: 10),
-            ElevatedButton(onPressed: _pickIcon, child: const Text("Pick Icon"))
+            // ElevatedButton(onPressed: _pickIcon, child: const Text("Pick Icon"))
           ],
         )
       ],

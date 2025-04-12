@@ -12,9 +12,9 @@ const AndroidInitializationSettings initializationSettingsAndroid =
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await flutterLocalNotificationsPlugin.initialize(
-    const InitializationSettings(android: initializationSettingsAndroid),
-  );
+  // await flutterLocalNotificationsPlugin.initialize(
+  //   const InitializationSettings(android: initializationSettingsAndroid),
+  // );
 
   runApp(const MyApp());
 }
