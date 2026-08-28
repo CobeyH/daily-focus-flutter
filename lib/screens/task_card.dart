@@ -23,8 +23,23 @@ class TaskCard extends ConsumerWidget {
 
     final color = Color(task.color);
     final unit = task.type.label;
-    final fraction =
-        task.goal == 0 ? 0.0 : (progress / task.goal).clamp(0.0, 1.0);
+
+    // For timed tasks, the ring reflects live elapsed time (filling up as the
+    // countdown runs), so it updates every tick. For occurrence tasks it is
+    // the stored progress. Both fill from empty to full as you approach the
+    // goal.
+    final remaining = task.type == TaskType.minutes
+        ? ref.watch(taskRemainingProvider(task))
+        : null;
+    final double fraction;
+    if (task.type == TaskType.minutes && remaining != null && task.goal > 0) {
+      final total = Duration(minutes: task.goal);
+      final elapsed = total - remaining;
+      fraction =
+          (elapsed.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0);
+    } else {
+      fraction = task.goal == 0 ? 0.0 : (progress / task.goal).clamp(0.0, 1.0);
+    }
 
     return Dismissible(
       key: ValueKey(task.id),
