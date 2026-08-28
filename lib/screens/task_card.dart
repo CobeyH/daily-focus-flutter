@@ -24,6 +24,12 @@ class TaskCard extends ConsumerWidget {
     final color = Color(task.color);
     final unit = task.type.label;
 
+    // Whether this task's countdown is actively running (not paused, and not
+    // an occurrence task). Used to visually highlight the active task.
+    final activeTimer = ref.watch(timerControllerProvider).timerFor(task.id);
+    final isActive =
+        task.type == TaskType.minutes && activeTimer?.paused == false;
+
     // For timed tasks, the ring reflects live elapsed time (filling up as the
     // countdown runs), so it updates every tick. For occurrence tasks it is
     // the stored progress. Both fill from empty to full as you approach the
@@ -53,6 +59,13 @@ class TaskCard extends ConsumerWidget {
       ),
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isActive
+              ? BorderSide(color: color, width: 2)
+              : BorderSide(color: Colors.grey.shade200),
+        ),
+        elevation: isActive ? 4 : 1,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
