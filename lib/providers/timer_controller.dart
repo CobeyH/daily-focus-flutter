@@ -92,6 +92,62 @@ class TimerController extends Notifier<TimerState> {
     await _notifier.cancel(_notificationIdFor(task.id));
   }
 
+  /// Reconciles the active timer for [task] after its definition has changed
+  /// (e.g. the user edited the goal). If the task has no active timer, this
+  /// is a no-op — editing the goal should not start the task. If a running
+  /// timer exists, it is restarted against the new goal and the scheduled
+  /// notification is rescheduled. If a paused timer exists, its remaining
+  /// snapshot is reset to the new goal and left paused (and its scheduled
+  /// notification is cancelled). Returns whether any change was made.
+  Future<bool> reconcileForTask(Task task) async {
+    if (task.type != TaskType.minutes) return false;
+    final existing = state.timers[task.id];
+    if (existing == null) return false;
+
+    final now = DateTime.now();
+    final goalMs = Duration(seconds: task.goal).inMilliseconds;
+    final currentRemainingMs = existing.remainingAt(now).inMilliseconds;
+    if (currentRemainingMs == goalMs && !existing.paused) {
+      // The timer was already started fresh against this goal — nothing to do.
+      return false;
+    }
+
+    // Reset the timer's remaining snapshot to the new goal, preserving the
+    // prior paused/running state. Editing the goal must never auto-start a
+    // task that wasn't already running.
+    final reset = ActiveTimer(
+      taskId: task.id,
+      startedAt: existing.startedAt,
+      paused: existing.paused,
+      remaining: Duration(milliseconds: goalMs),
+      updatedAt: now,
+    );
+    final timers = {...state.timers, task.id: reset};
+    state = TimerState(timers: timers, now: DateTime.now());
+    await _persist(timers);
+
+    await _notifier.cancel(_notificationIdFor(task.id));
+    if (!reset.paused) {
+      await _notifier.scheduleTaskComplete(
+        notificationId: _notificationIdFor(task.id),
+        taskName: task.name,
+        when: now.add(reset.remainingAt(now)),
+      );
+    }
+    return true;
+  }
+
+  /// Removes any active timer for [taskId] (e.g. when the task has been
+  /// deleted). Cancels the scheduled notification as well.
+  Future<void> clearFor(String taskId) async {
+    final existing = state.timers[taskId];
+    if (existing == null) return;
+    final timers = {...state.timers}..remove(taskId);
+    state = TimerState(timers: timers, now: DateTime.now());
+    await _persist(timers);
+    await _notifier.cancel(_notificationIdFor(taskId));
+  }
+
   /// Callable from a lifecycle observer on resume to catch up any timer that
   /// finished while the app was suspended (defense in depth beyond the
   /// scheduled notification).

@@ -21,7 +21,7 @@ class Task {
   final TaskType type;
 
   /// Daily target. For [TaskType.count] it's a number of occurrences; for
-  /// [TaskType.minutes] it's a number of minutes.
+  /// [TaskType.minutes] it's a number of seconds.
   final int goal;
 
   /// How much one tap contributes. For [TaskType.count] this is always 1; for
@@ -92,21 +92,30 @@ class Task {
         'name': name,
         'type': type.label,
         'goal': goal,
+        'goalSeconds': true,
         'step': step,
         'color': color,
         'icon': icon,
         'createdAt': createdAt.toIso8601String(),
       };
 
-  factory Task.fromJson(Map<String, dynamic> json) => Task(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        type: TaskTypeX.fromValue(json['type'] as String? ?? 'count'),
-        goal: json['goal'] as int,
-        step: json['step'] as int? ?? 1,
-        color: json['color'] as int? ?? 0xFF5C6BC0,
-        icon: json['icon'] as int? ?? 0xe0b0,
-        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
-            DateTime.now(),
-      );
+  factory Task.fromJson(Map<String, dynamic> json) {
+    final type = TaskTypeX.fromValue(json['type'] as String? ?? 'count');
+    var goal = json['goal'] as int;
+    // Legacy data stored time goals in minutes; migrate to seconds.
+    if (type == TaskType.minutes && json['goalSeconds'] != true) {
+      goal = goal * 60;
+    }
+    return Task(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      type: type,
+      goal: goal,
+      step: json['step'] as int? ?? 1,
+      color: json['color'] as int? ?? 0xFF5C6BC0,
+      icon: json['icon'] as int? ?? 0xe0b0,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
 }

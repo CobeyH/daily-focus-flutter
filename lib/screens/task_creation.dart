@@ -24,6 +24,11 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
   late int _icon;
   late bool _isEdit;
 
+  // Time-based goal, split into h/m/s for easier entry.
+  late int _goalHours;
+  late int _goalMinutes;
+  late int _goalSeconds;
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +40,19 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
     _step = t?.step ?? 1;
     _color = t?.color ?? taskColors.first;
     _icon = t?.icon ?? taskIcons.first.codePoint;
+
+    // Split the goal into h/m/s. For count tasks the goal is occurrences and
+    // this decomposition is unused; for minutes tasks it's stored in seconds.
+    if (_type == TaskType.minutes) {
+      final d = Duration(seconds: _goal);
+      _goalHours = d.inHours;
+      _goalMinutes = d.inMinutes.remainder(60);
+      _goalSeconds = d.inSeconds.remainder(60);
+    } else {
+      _goalHours = 0;
+      _goalMinutes = 0;
+      _goalSeconds = 0;
+    }
   }
 
   @override
@@ -51,12 +69,22 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
       );
       return;
     }
+    // For time-based tasks, the goal is the total duration in seconds.
+    final goal = _type == TaskType.minutes
+        ? _goalHours * 3600 + _goalMinutes * 60 + _goalSeconds
+        : _goal;
+    if (_type == TaskType.minutes && goal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please set a goal longer than zero.')),
+      );
+      return;
+    }
     final controller = ref.read(appControllerProvider.notifier);
     if (_isEdit) {
       await controller.updateTask(widget.existing!.copyWith(
         name: name,
         type: _type,
-        goal: _goal,
+        goal: goal,
         step: _step,
         color: _color,
         icon: _icon,
@@ -65,7 +93,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
       await controller.addTask(Task.create(
         name: name,
         type: _type,
-        goal: _goal,
+        goal: goal,
         step: _step,
         color: _color,
         icon: _icon,
@@ -114,32 +142,45 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
           Text('Daily goal',
               style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => setState(() {
-                  if (_goal > 1) _goal--;
-                }),
-                icon: const Icon(Icons.remove_circle_outline),
-              ),
-              Expanded(
-                child: Text(
-                  '$_goal ${_type.label}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22),
+          if (_type == TaskType.minutes)
+            _DurationSelector(
+              hours: _goalHours,
+              minutes: _goalMinutes,
+              seconds: _goalSeconds,
+              onChanged: (h, m, s) => setState(() {
+                _goalHours = h;
+                _goalMinutes = m;
+                _goalSeconds = s;
+              }),
+            )
+          else
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => setState(() {
+                    if (_goal > 1) _goal--;
+                  }),
+                  icon: const Icon(Icons.remove_circle_outline),
                 ),
-              ),
-              IconButton(
-                onPressed: () => setState(() => _goal++),
-                icon: const Icon(Icons.add_circle_outline),
-              ),
-            ],
-          ),
+                Expanded(
+                  child: Text(
+                    '$_goal ${_type.label}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 22),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _goal++),
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+              ],
+            ),
           if (_type == TaskType.minutes)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'When you start this task, a timer counts down $_goal minutes. '
+                'When you start this task, a timer counts down '
+                '${_goalHours}h ${_goalMinutes}m ${_goalSeconds}s. '
                 'Even if the app is closed, you\'ll get a notification when it\'s '
                 'done.',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
@@ -158,6 +199,102 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+}
+
+/// A three-column selector for entering a duration with hour / minute /
+/// second granularity. Each column shows the value with +/- buttons and a
+/// slider for quick adjustment.
+class _DurationSelector extends StatelessWidget {
+  final int hours;
+  final int minutes;
+  final int seconds;
+  final void Function(int hours, int minutes, int seconds) onChanged;
+
+  const _DurationSelector({
+    required this.hours,
+    required this.minutes,
+    required this.seconds,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fields = [
+      ('h', hours, 24, 0),
+      ('m', minutes, 59, 5),
+      ('s', seconds, 59, 5),
+    ];
+    return Row(
+      children: [
+        for (final (label, value, max, step) in fields)
+          Expanded(
+            child: _TimeField(
+              label: label,
+              value: value,
+              max: max,
+              step: step,
+              onChanged: (v) {
+                switch (label) {
+                  case 'h':
+                    onChanged(v, minutes, seconds);
+                    break;
+                  case 'm':
+                    onChanged(hours, v, seconds);
+                    break;
+                  default:
+                    onChanged(hours, minutes, v);
+                }
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TimeField extends StatelessWidget {
+  final String label;
+  final int value;
+  final int max;
+  final int step;
+  final void Function(int) onChanged;
+
+  const _TimeField({
+    required this.label,
+    required this.value,
+    required this.max,
+    required this.step,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        IconButton(
+          onPressed: () => onChanged((value + step).clamp(0, max)),
+          icon: const Icon(Icons.keyboard_arrow_up),
+        ),
+        Text(
+          '$value',
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+        ),
+        IconButton(
+          onPressed: () => onChanged((value - step).clamp(0, max)),
+          icon: const Icon(Icons.keyboard_arrow_down),
+        ),
+        Text(label,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        Slider(
+          value: value.toDouble().clamp(0, max.toDouble()),
+          min: 0,
+          max: max.toDouble(),
+          divisions: max,
+          onChanged: (v) => onChanged(v.round()),
+        ),
+      ],
     );
   }
 }

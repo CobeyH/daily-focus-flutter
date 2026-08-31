@@ -45,7 +45,7 @@ class ActiveTimer {
       taskId: task.id,
       startedAt: now,
       paused: false,
-      remaining: Duration(minutes: task.goal),
+      remaining: Duration(seconds: task.goal),
       updatedAt: now,
     );
   }

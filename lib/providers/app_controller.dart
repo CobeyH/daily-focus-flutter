@@ -6,6 +6,7 @@ import '../models/task_entry.dart';
 import '../services/notification_service.dart';
 import '../storage/app_storage.dart';
 import '../utils/dates.dart';
+import 'timer_controller.dart';
 
 /// Provides the pre-loaded [SharedPreferences] instance.
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -65,6 +66,10 @@ class AppController extends Notifier<AppState> {
         .toList(growable: false);
     state = AppState(tasks: tasks, entries: state.entries);
     await _storage.saveTasks(tasks);
+    // If the task has an active countdown and its definition changed,
+    // reconcile the timer so the displayed remaining time matches the new
+    // goal instead of the old one.
+    await ref.read(timerControllerProvider.notifier).reconcileForTask(updated);
   }
 
   Future<void> deleteTask(String id) async {
@@ -74,6 +79,9 @@ class AppController extends Notifier<AppState> {
     state = AppState(tasks: tasks, entries: entries);
     await _storage.saveTasks(tasks);
     await _storage.saveEntries(entries);
+    // Cancel any running/paused countdown and its scheduled notification
+    // so a delete doesn't leave an orphan alarm pointing at a gone task.
+    await ref.read(timerControllerProvider.notifier).clearFor(id);
   }
 
   // ---- Daily progress ------------------------------------------------------

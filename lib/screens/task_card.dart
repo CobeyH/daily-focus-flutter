@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/task.dart';
 import '../providers/app_controller.dart';
 import '../providers/timer_controller.dart';
+import '../utils/duration_format.dart';
 import '../widgets/selectors.dart';
 import 'task_creation.dart';
 
@@ -13,6 +14,33 @@ class TaskCard extends ConsumerWidget {
   final Task task;
 
   const TaskCard({super.key, required this.task});
+
+  /// Shows a confirmation dialog before deleting [taskName]. Returns `true`
+  /// if the user confirmed the deletion.
+  static Future<bool?> _confirmDelete(
+      BuildContext context, String taskName) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete task?'),
+        content: Text(
+          '“$taskName” will be removed and its history will be cleared. '
+          'This can\'t be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,7 +67,7 @@ class TaskCard extends ConsumerWidget {
         : null;
     final double fraction;
     if (task.type == TaskType.minutes && remaining != null && task.goal > 0) {
-      final total = Duration(minutes: task.goal);
+      final total = Duration(seconds: task.goal);
       final elapsed = total - remaining;
       fraction =
           (elapsed.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0);
@@ -50,6 +78,7 @@ class TaskCard extends ConsumerWidget {
     return Dismissible(
       key: ValueKey(task.id),
       direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDelete(context, task.name),
       onDismissed: (_) => controller.deleteTask(task.id),
       background: Container(
         alignment: Alignment.centerRight,
@@ -86,21 +115,41 @@ class TaskCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () {
+                        IconButton(
+                          tooltip: 'Edit',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
+                          icon: const Icon(Icons.edit, size: 18),
+                          onPressed: () {
                             Navigator.of(context).push(MaterialPageRoute(
                               builder: (_) =>
                                   TaskCreationScreen(existing: task),
                             ));
                           },
-                          child: const Icon(Icons.edit, size: 18),
+                        ),
+                        IconButton(
+                          tooltip: 'Delete',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
+                          icon: const Icon(Icons.delete_outline,
+                              size: 18, color: Colors.red),
+                          onPressed: () async {
+                            final ok = await _confirmDelete(context, task.name);
+                            if (ok == true) {
+                              await controller.deleteTask(task.id);
+                            }
+                          },
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       task.type == TaskType.minutes
-                          ? 'Goal: ${task.goal} $unit today'
+                          ? 'Goal: ${formatGoalDuration(Duration(seconds: task.goal))} today'
                           : '$progress / ${task.goal} $unit today',
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
