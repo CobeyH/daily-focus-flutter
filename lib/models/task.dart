@@ -1,5 +1,7 @@
 import 'package:uuid/uuid.dart';
 
+import 'schedule.dart';
+
 /// The two kinds of tasks described by the product goals.
 ///
 /// * [count]   — occurrence based ("do X 5 times a day"). Each tap = +1.
@@ -36,6 +38,10 @@ class Task {
 
   final DateTime createdAt;
 
+  /// How often the task is due. Defaults to [ScheduleDaily] (every day) for
+  /// tasks created without an explicit schedule.
+  final Schedule schedule;
+
   const Task({
     required this.id,
     required this.name,
@@ -45,6 +51,7 @@ class Task {
     required this.color,
     required this.icon,
     required this.createdAt,
+    this.schedule = const ScheduleDaily(),
   });
 
   factory Task.create({
@@ -54,6 +61,7 @@ class Task {
     required int step,
     required int color,
     required int icon,
+    Schedule schedule = const ScheduleDaily(),
   }) {
     return Task(
       id: const Uuid().v4(),
@@ -64,6 +72,7 @@ class Task {
       color: color,
       icon: icon,
       createdAt: DateTime.now(),
+      schedule: schedule,
     );
   }
 
@@ -74,6 +83,7 @@ class Task {
     int? step,
     int? color,
     int? icon,
+    Schedule? schedule,
   }) {
     return Task(
       id: id,
@@ -84,6 +94,7 @@ class Task {
       color: color ?? this.color,
       icon: icon ?? this.icon,
       createdAt: createdAt,
+      schedule: schedule ?? this.schedule,
     );
   }
 
@@ -97,6 +108,7 @@ class Task {
         'color': color,
         'icon': icon,
         'createdAt': createdAt.toIso8601String(),
+        'schedule': schedule.toJson(),
       };
 
   factory Task.fromJson(Map<String, dynamic> json) {
@@ -106,6 +118,10 @@ class Task {
     if (type == TaskType.minutes && json['goalSeconds'] != true) {
       goal = goal * 60;
     }
+    final scheduleJson = json['schedule'];
+    final schedule = scheduleJson is Map<String, dynamic>
+        ? Schedule.fromJson(scheduleJson)
+        : const ScheduleDaily();
     return Task(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -116,6 +132,7 @@ class Task {
       icon: json['icon'] as int? ?? 0xe0b0,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
+      schedule: schedule,
     );
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/schedule.dart';
 import '../models/task.dart';
 import '../providers/app_controller.dart';
 import '../providers/timer_controller.dart';
+import '../utils/dates.dart';
 import '../utils/duration_format.dart';
 import '../widgets/selectors.dart';
 import 'task_creation.dart';
@@ -47,10 +49,15 @@ class TaskCard extends ConsumerWidget {
     final progress = ref.watch(taskProgressProvider(task));
     final done = ref.watch(taskDoneTodayProvider(task));
     final streak = ref.watch(taskStreakProvider(task));
+    final overdue = ref.watch(taskOverdueProvider(task));
     final controller = ref.read(appControllerProvider.notifier);
 
     final color = Color(task.color);
     final unit = task.type.label;
+
+    final today = todayOnly();
+    final dueToday = isTaskDueOn(task, today);
+    final scheduleDesc = task.schedule.describe();
 
     // Whether this task's countdown is actively running (not paused, and not
     // an occurrence task). Used to visually highlight the active task.
@@ -74,6 +81,8 @@ class TaskCard extends ConsumerWidget {
     } else {
       fraction = task.goal == 0 ? 0.0 : (progress / task.goal).clamp(0.0, 1.0);
     }
+
+    final greyedOut = !dueToday && !overdue;
 
     return Dismissible(
       key: ValueKey(task.id),
@@ -151,7 +160,38 @@ class TaskCard extends ConsumerWidget {
                       task.type == TaskType.minutes
                           ? 'Goal: ${formatGoalDuration(Duration(seconds: task.goal))} today'
                           : '$progress / ${task.goal} $unit today',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(
+                        color: greyedOut
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.event_repeat,
+                          size: 14,
+                          color: greyedOut
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          scheduleDesc,
+                          style: TextStyle(
+                            color: greyedOut
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (overdue) ...[
+                          const SizedBox(width: 8),
+                          _OverdueBadge(
+                              missedDate:
+                                  ref.watch(taskMissedDueDateProvider(task))),
+                        ],
+                      ],
                     ),
                     if (task.type == TaskType.minutes)
                       _TimedStatus(task: task, color: color),
@@ -171,7 +211,9 @@ class TaskCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (task.type == TaskType.minutes)
+              if (greyedOut)
+                _OffDayAction(task: task, color: color)
+              else if (task.type == TaskType.minutes)
                 _TimedAction(task: task, color: color, done: done)
               else
                 _CountAction(task: task, color: color, done: done),
@@ -179,6 +221,110 @@ class TaskCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A red pill rendered next to the schedule description. Shows when the
+/// missed due date was so the user knows *which* date the task is overdue
+/// from, not just that it's overdue in the abstract.
+class _OverdueBadge extends StatelessWidget {
+  final DateTime? missedDate;
+  const _OverdueBadge({required this.missedDate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Text(
+        _label(missedDate),
+        style: TextStyle(
+          color: Colors.red.shade700,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Builds a human-readable "since …" label from [missedDate].
+  ///
+  /// * Same day → "Overdue today".
+  /// * 1 day ago → "Overdue since yesterday".
+  /// * Within the last 6 days → "Overdue since Mon".
+  /// * Otherwise → "Overdue since Aug 25".
+  /// * `null` (no specific missed date known) → "Overdue".
+  static String _label(DateTime? missed) {
+    if (missed == null) return 'Overdue';
+    final today = todayOnly();
+    final m = DateTime(missed.year, missed.month, missed.day);
+    final daysAgo = today.difference(m).inDays;
+    if (daysAgo <= 0) return 'Overdue today';
+    if (daysAgo == 1) return 'Overdue since yesterday';
+    if (daysAgo < 7) {
+      return 'Overdue since ${kWeekDayLabels[m.weekday - DateTime.monday]}';
+    }
+    final months = const [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return 'Overdue since ${months[m.month - 1]} ${m.day}';
+  }
+}
+
+/// A small, disabled button shown for recurring tasks that aren't due today,
+/// indicating when the task is next due.
+class _OffDayAction extends StatelessWidget {
+  final Task task;
+  final Color color;
+
+  const _OffDayAction({required this.task, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final next = task.schedule.nextDueDateAfter(todayOnly());
+    final daysAway = next == null
+        ? null
+        : DateTime(next.year, next.month, next.day)
+            .difference(todayOnly())
+            .inDays;
+    final label = next == null
+        ? 'Not scheduled'
+        : daysAway == 0
+            ? 'Today'
+            : 'Next: in ${daysAway}d';
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Icon(Icons.event, color: Colors.grey.shade500, size: 22),
+        ),
+        const SizedBox(height: 4),
+        Text(label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+      ],
     );
   }
 }

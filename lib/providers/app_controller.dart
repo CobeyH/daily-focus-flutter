@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/schedule.dart';
 import '../models/task.dart';
 import '../models/task_entry.dart';
 import '../services/notification_service.dart';
@@ -86,25 +87,78 @@ class AppController extends Notifier<AppState> {
 
   // ---- Daily progress ------------------------------------------------------
 
-  /// Increments progress for [task] on today's date key.
-  Future<void> increment(Task task) async {
-    final key = dateKey(todayOnly());
-    final current = state.progressFor(task.id, key);
-    final updated = TaskEntry(
+  /// Increments progress for [task] on today's date key. For tasks with a
+  /// recurring schedule, this counts toward the goal on the current due
+  /// date — not toward a different cycle.
+  ///
+  /// If the task is overdue (had a missed due date on or before today),
+  /// that missed date is also credited so the overdue state clears. This
+  /// lets a user "catch up" by tapping once today.
+  ///
+  /// [now] is the wall-clock "today" used for date-key selection. It
+  /// defaults to the real current day but can be injected for tests.
+  Future<void> increment(Task task, {DateTime? now}) async {
+    final today = _todayOf(now);
+    final todayKey = dateKey(today);
+    final currentToday = state.progressFor(task.id, todayKey);
+    final updatedToday = TaskEntry(
       taskId: task.id,
-      dateKey: key,
-      progress: current + task.step,
+      dateKey: todayKey,
+      progress: currentToday + task.step,
     );
-    await _upsertEntry(updated);
+    await _upsertEntry(updatedToday);
+
+    // If the task is overdue and the missed date is strictly before today,
+    // also credit that date so the overdue state clears. If the missed date
+    // *is* today, today's increment already handles it.
+    final missed = firstMissedDueDate(task, today, state);
+    if (missed != null) {
+      final m = DateTime(missed.year, missed.month, missed.day);
+      if (m.isBefore(today)) {
+        final missedKey = dateKey(m);
+        final currentMissed = state.progressFor(task.id, missedKey);
+        final updatedMissed = TaskEntry(
+          taskId: task.id,
+          dateKey: missedKey,
+          progress: currentMissed + task.step,
+        );
+        await _upsertEntry(updatedMissed);
+      }
+    }
   }
 
   /// Decrements progress for [task] on today's date key (floor of 0).
-  Future<void> decrement(Task task) async {
-    final key = dateKey(todayOnly());
-    final current = state.progressFor(task.id, key);
-    final next = (current - task.step).clamp(0, 1 << 30);
-    final updated = TaskEntry(taskId: task.id, dateKey: key, progress: next);
-    await _upsertEntry(updated);
+  ///
+  /// Mirrors [increment]: if the task is overdue, the most recent missed
+  /// date is also decremented (if it has progress to remove). This keeps
+  /// the overdue state in sync with the user's intent when they undo a tap.
+  Future<void> decrement(Task task, {DateTime? now}) async {
+    final today = _todayOf(now);
+    final todayKey = dateKey(today);
+    final currentToday = state.progressFor(task.id, todayKey);
+    final nextToday = (currentToday - task.step).clamp(0, 1 << 30);
+    await _upsertEntry(
+        TaskEntry(taskId: task.id, dateKey: todayKey, progress: nextToday));
+
+    final missed = firstMissedDueDate(task, today, state);
+    if (missed != null) {
+      final m = DateTime(missed.year, missed.month, missed.day);
+      if (m.isBefore(today)) {
+        final missedKey = dateKey(m);
+        final currentMissed = state.progressFor(task.id, missedKey);
+        if (currentMissed > 0) {
+          final nextMissed = (currentMissed - task.step).clamp(0, 1 << 30);
+          await _upsertEntry(TaskEntry(
+              taskId: task.id, dateKey: missedKey, progress: nextMissed));
+        }
+      }
+    }
+  }
+
+  /// Returns the date-only [DateTime] for [now] (defaults to real today).
+  static DateTime _todayOf(DateTime? now) {
+    final n = now ?? DateTime.now();
+    return DateTime(n.year, n.month, n.day);
   }
 
   /// Records the completion of a timed (minutes) task.
@@ -140,6 +194,84 @@ final tasksProvider = Provider<List<Task>>((ref) {
   return ref.watch(appControllerProvider).tasks;
 });
 
+// ---- Schedule / due-date helpers ------------------------------------------
+
+/// Whether [task] is due on [day]. Pure schedule check (no overdue).
+bool isTaskDueOn(Task task, DateTime day) => task.schedule.isDueOn(day);
+
+/// Returns the previous due date strictly before [d] under [schedule], or
+/// `null` if none exists.
+DateTime? _previousDueDate(Schedule schedule, DateTime d) {
+  final before =
+      DateTime(d.year, d.month, d.day).subtract(const Duration(days: 1));
+  return schedule.lastDueDateOnOrBefore(before);
+}
+
+/// Whether [task] has at least one missed due date strictly before [day].
+///
+/// A task is "overdue" only if:
+///
+/// * It has a non-daily schedule (a daily task that hasn't been met today is
+///   simply in-progress, not overdue — that would show as a confusing
+///   "Overdue" badge every morning).
+/// * And one of its due dates strictly before today was missed.
+///
+/// Today being a due date that hasn't been met yet is not overdue — that's
+/// just the task being due today. The user must have had a chance to do it
+/// yesterday or earlier for it to be "overdue".
+bool isTaskOverdueOn(Task task, DateTime day, AppState state) {
+  if (task.schedule is ScheduleDaily) return false;
+  final today = DateTime(day.year, day.month, day.day);
+  final cursor = task.schedule.lastDueDateOnOrBefore(today);
+  if (cursor == null) return false;
+  var d = cursor;
+  var guard = 0;
+  while (guard++ < 366 * 5) {
+    if (state.progressFor(task.id, dateKey(d)) < task.goal) {
+      return d.isBefore(today);
+    }
+    final prev = _previousDueDate(task.schedule, d);
+    if (prev == null) break;
+    d = prev;
+  }
+  return false;
+}
+
+/// Returns the oldest unmet due date on or before [day] for [task], or
+/// `null` if all recent due dates are met. Used to display e.g.
+/// "Overdue since Monday" on the task card.
+DateTime? firstMissedDueDate(Task task, DateTime day, AppState state) {
+  final today = DateTime(day.year, day.month, day.day);
+  var d = task.schedule.lastDueDateOnOrBefore(today);
+  var guard = 0;
+  while (d != null && guard++ < 366 * 5) {
+    if (state.progressFor(task.id, dateKey(d)) < task.goal) return d;
+    final prev = _previousDueDate(task.schedule, d);
+    d = prev;
+  }
+  return null;
+}
+
+/// Today's tasks sorted with overdue first, then due-today, then everything
+/// else (still returned so the UI can offer a "show all" affordance).
+final tasksForTodayProvider = Provider<List<Task>>((ref) {
+  final state = ref.watch(appControllerProvider);
+  final today = todayOnly();
+  final tasks = [...state.tasks];
+  int rank(Task t) {
+    if (isTaskOverdueOn(t, today, state)) return 0;
+    if (isTaskDueOn(t, today)) return 1;
+    return 2;
+  }
+
+  tasks.sort((a, b) {
+    final r = rank(a).compareTo(rank(b));
+    if (r != 0) return r;
+    return a.createdAt.compareTo(b.createdAt);
+  });
+  return tasks;
+});
+
 // ---- Streak / progress helpers --------------------------------------------
 
 /// Returns the progress for [task] on today's date key.
@@ -148,8 +280,39 @@ final taskProgressProvider = Provider.family<int, Task>((ref, task) {
   return state.progressFor(task.id, dateKey(todayOnly()));
 });
 
-/// Returns the current streak (consecutive days meeting the goal, ending
-/// today or yesterday) for [task].
+/// Whether [task]'s goal has been met today.
+final taskDoneTodayProvider = Provider.family<bool, Task>((ref, task) {
+  return ref.watch(taskProgressProvider(task)) >= task.goal;
+});
+
+/// Whether [task] is currently overdue (had an unmet due date on or before
+/// today).
+final taskOverdueProvider = Provider.family<bool, Task>((ref, task) {
+  final state = ref.watch(appControllerProvider);
+  return isTaskOverdueOn(task, todayOnly(), state);
+});
+
+/// The first (oldest) unmet due date on or before today, or `null` if the
+/// task is up to date. Used to render a more helpful "Overdue since …"
+/// affordance.
+final taskMissedDueDateProvider = Provider.family<DateTime?, Task>((ref, task) {
+  final state = ref.watch(appControllerProvider);
+  return firstMissedDueDate(task, todayOnly(), state);
+});
+
+/// The most recent due date on or before today, regardless of whether it was
+/// met. For [ScheduleDaily] this is today.
+final taskLastDueDateProvider = Provider.family<DateTime?, Task>((ref, task) {
+  return task.schedule.lastDueDateOnOrBefore(todayOnly());
+});
+
+/// Returns the current streak (consecutive due days meeting the goal, going
+/// backwards from the most recent due day) for [task].
+///
+/// A streak survives a missed-then-completed due date: if the most recent
+/// due day is unmet, the streak starts counting from the previous met due
+/// day (so completing an overdue task today still preserves any prior
+/// streak).
 final taskStreakProvider = Provider.family<int, Task>((ref, task) {
   final state = ref.watch(appControllerProvider);
   final entries =
@@ -160,27 +323,24 @@ final taskStreakProvider = Provider.family<int, Task>((ref, task) {
     map[e.dateKey] = e.progress;
   }
 
-  int streak = 0;
-  final now = todayOnly();
-  var cursor = now;
-
-  // If today isn't complete yet, streak can still be continued from
-  // yesterday, so start counting from the most recent completed day.
-  if ((map[dateKey(cursor)] ?? 0) < task.goal) {
-    cursor = now.subtract(const Duration(days: 1));
+  DateTime? maybeCursor = task.schedule.lastDueDateOnOrBefore(todayOnly());
+  // If the most recent due day isn't met, skip it — the streak can continue
+  // from the previous met due day (so completing an overdue task today
+  // preserves any prior streak).
+  if (maybeCursor != null && (map[dateKey(maybeCursor)] ?? 0) < task.goal) {
+    maybeCursor = _previousDueDate(task.schedule, maybeCursor);
   }
+  DateTime? cursor = maybeCursor;
+  if (cursor == null) return 0;
 
+  int streak = 0;
   while (true) {
-    final p = map[dateKey(cursor)] ?? 0;
+    final today = cursor;
+    if (today == null) break;
+    final p = map[dateKey(today)] ?? 0;
     if (p < task.goal) break;
     streak++;
-    cursor = cursor.subtract(const Duration(days: 1));
+    cursor = _previousDueDate(task.schedule, today);
   }
-
   return streak;
-});
-
-/// Whether [task]'s goal has been met today.
-final taskDoneTodayProvider = Provider.family<bool, Task>((ref, task) {
-  return ref.watch(taskProgressProvider(task)) >= task.goal;
 });

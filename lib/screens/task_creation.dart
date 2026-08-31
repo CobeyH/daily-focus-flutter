@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/schedule.dart';
 import '../models/task.dart';
 import '../providers/app_controller.dart';
+import '../widgets/schedule_picker.dart';
 import '../widgets/selectors.dart';
 
 /// Screen for creating a new task or editing an existing one.
@@ -23,6 +25,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
   late int _color;
   late int _icon;
   late bool _isEdit;
+  late Schedule _schedule;
 
   // Time-based goal, split into h/m/s for easier entry.
   late int _goalHours;
@@ -40,6 +43,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
     _step = t?.step ?? 1;
     _color = t?.color ?? taskColors.first;
     _icon = t?.icon ?? taskIcons.first.codePoint;
+    _schedule = t?.schedule ?? const ScheduleDaily();
 
     // Split the goal into h/m/s. For count tasks the goal is occurrences and
     // this decomposition is unused; for minutes tasks it's stored in seconds.
@@ -88,6 +92,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
         step: _step,
         color: _color,
         icon: _icon,
+        schedule: _schedule,
       ));
     } else {
       await controller.addTask(Task.create(
@@ -97,6 +102,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
         step: _step,
         color: _color,
         icon: _icon,
+        schedule: _schedule,
       ));
     }
     if (mounted) Navigator.of(context).pop();
@@ -186,6 +192,11 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ),
+          const SizedBox(height: 24),
+          SchedulePicker(
+            initial: _schedule,
+            onChanged: (s) => _schedule = s,
+          ),
           const SizedBox(height: 24),
           const Text('Color', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
