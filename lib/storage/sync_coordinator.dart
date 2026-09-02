@@ -39,24 +39,59 @@ class SyncCoordinator {
 
   bool get isSignedIn => _remote.isSignedIn;
 
-  /// Ensures a user is signed in (signing in anonymously if needed), then pulls
-  /// the remote snapshot and merges it into local. Idempotent — safe to call
-  /// repeatedly (e.g. on every app launch).
-  Future<void> ensureSignedInAndSync() async {
-    if (!_remote.isSignedIn) {
-      await _signInAnonymously();
-    }
+  String? get currentUserEmail => _remote.currentUserEmail;
+
+  /// Emits whether a user is signed in. Used to flip the app between an auth
+  /// gate and the home screen.
+  Stream<bool> observeAuthState() => _remote.observeAuthState();
+
+  /// Creates an account and signs in, then merges the on-device data into it
+  /// so nothing the user already did offline is lost.
+  Future<void> signUp({
+    required String email,
+    required String password,
+  }) async {
+    await _remote.signUp(email: email, password: password);
+    await _afterAuthenticated();
+  }
+
+  /// Signs into an existing account, then merges the on-device data with the
+  /// account's cloud data.
+  Future<void> signIn({
+    required String email,
+    required String password,
+  }) async {
+    await _remote.signIn(email: email, password: password);
+    await _afterAuthenticated();
+  }
+
+  /// Signs out. Stops observing remote changes for the current user.
+  Future<void> signOut() async {
+    await _sub?.cancel();
+    _sub = null;
+    await _remote.signOut();
+  }
+
+  /// After a real account is established: push this device's local data up,
+  /// pull the (merged) cloud state down, then start observing. This is the
+  /// "merge device data into account" onboarding step.
+  Future<void> _afterAuthenticated() async {
+    // 1) Upload whatever is on this device so a fresh install's work isn't lost.
+    await pushLocal();
+    // 2) Download the account's full state (superset of the two) and merge.
     await pullAndMerge();
+    // 3) Subscribe to future changes from other devices.
     startObserving();
   }
 
-  Future<void> _signInAnonymously() async {
-    try {
-      await _remote.signInAnonymously();
-    } catch (e) {
-      // If anonymous sign-in isn't enabled in the Supabase project, fall back
-      // to a graceful no-op — the app remains fully usable in local mode.
-    }
+  /// Ensures a user is signed in (signing in anonymously if needed), then pulls
+  /// If the user already has a session (e.g. persisted from a previous sign-in
+  /// on this device), sync immediately — without forcing an anonymous account.
+  /// Otherwise does nothing; the auth screen shown by the app handles sign-in.
+  Future<void> syncIfSignedIn() async {
+    if (!_remote.isSignedIn) return;
+    await pullAndMerge();
+    startObserving();
   }
 
   /// Pulls remote state and merges it into the local store. Safe to call

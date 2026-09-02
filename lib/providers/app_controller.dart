@@ -51,6 +51,20 @@ final syncCoordinatorProvider = Provider<SyncCoordinator?>((ref) {
   return coordinator;
 });
 
+/// Whether the user is signed in.
+///
+/// When Supabase isn't configured, the app is effectively "signed in" (local
+/// mode) so the home screen shows. When it is configured, this reflects the
+/// realtime auth state: `null`/`false` → show the auth gate, `true` → home.
+final authStateProvider = StreamProvider<bool?>((ref) {
+  final coordinator = ref.watch(syncCoordinatorProvider);
+  if (coordinator == null) {
+    // Local-only mode: always treat as signed in so we skip the auth screen.
+    return Stream.value(true);
+  }
+  return coordinator.observeAuthState();
+});
+
 /// Provides the notification service singleton.
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService();
@@ -98,14 +112,15 @@ class AppController extends Notifier<AppState> {
     return state;
   }
 
-  /// Best-effort initial sync: pull remote state in, then start observing
-  /// remote changes. Runs independently so the UI isn't blocked.
+  /// Best-effort initial sync: if the user already has a session, pull remote
+  /// state in and start observing remote changes. Runs independently so the UI
+  /// isn't blocked. If there's no session yet, the auth screen drives sign-in.
   void _kickOffSync() {
     final coordinator = ref.read(syncCoordinatorProvider);
     if (coordinator == null) return;
     Future.microtask(() async {
       try {
-        await coordinator.ensureSignedInAndSync();
+        await coordinator.syncIfSignedIn();
       } catch (e) {
         // Offline at startup — fall back to local-only until the next sync.
       }

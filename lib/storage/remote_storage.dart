@@ -29,9 +29,27 @@ abstract class RemoteStorage {
   /// Whether a user is currently signed in (and remote writes are possible).
   bool get isSignedIn;
 
+  /// The email of the signed-in user, if any.
+  String? get currentUserEmail;
+
+  /// Emits auth state changes (sign-in, sign-out, session refresh). Emits
+  /// immediately on listen with the current state.
+  Stream<bool> observeAuthState();
+
   /// Signs in the user anonymously so they can persist data without creating
   /// an account. No-op if already signed in.
   Future<void> signInAnonymously();
+
+  /// Creates a new email/password account and signs in. Throws on failure
+  /// (e.g. email already registered).
+  Future<void> signUp({required String email, required String password});
+
+  /// Signs in an existing email/password account. Throws on failure
+  /// (e.g. wrong credentials — or the email hasn't been verified yet).
+  Future<void> signIn({required String email, required String password});
+
+  /// Signs out the current user. Safe to call when not signed in.
+  Future<void> signOut();
 
   /// Pulls the user's full data from the remote. Throws on failure.
   Future<RemoteSnapshot> pull();

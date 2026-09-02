@@ -27,6 +27,25 @@ class SupabaseStorage implements RemoteStorage {
   @override
   bool get isSignedIn => Supabase.instance.client.auth.currentUser != null;
 
+  @override
+  String? get currentUserEmail =>
+      Supabase.instance.client.auth.currentUser?.email;
+
+  @override
+  Stream<bool> observeAuthState() {
+    late final StreamController<bool> broadcast;
+    broadcast = StreamController<bool>.broadcast(
+      onListen: () {
+        broadcast.add(isSignedIn);
+      },
+    );
+    _client.auth.onAuthStateChange.listen((state) {
+      // Any auth event (signed in/out, token refresh) → re-evaluate signed-in.
+      broadcast.add(isSignedIn);
+    });
+    return broadcast.stream;
+  }
+
   SupabaseClient get _client => Supabase.instance.client;
 
   /// The current user's id (assumes signed-in).
@@ -36,6 +55,23 @@ class SupabaseStorage implements RemoteStorage {
   Future<void> signInAnonymously() async {
     if (isSignedIn) return;
     await _client.auth.signInAnonymously();
+  }
+
+  @override
+  Future<void> signUp({required String email, required String password}) async {
+    await _client.auth.signUp(email: email, password: password);
+  }
+
+  @override
+  Future<void> signIn({required String email, required String password}) async {
+    await _client.auth.signInWithPassword(email: email, password: password);
+  }
+
+  @override
+  Future<void> signOut() async {
+    if (isSignedIn) {
+      await _client.auth.signOut();
+    }
   }
 
   // ---- Helpers --------------------------------------------------------------

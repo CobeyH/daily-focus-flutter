@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'providers/app_controller.dart';
 import 'providers/timer_controller.dart';
+import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 
 Future<void> main() async {
@@ -79,7 +80,20 @@ class _DailyFocusAppState extends ConsumerState<DailyFocusApp>
         useMaterial3: true,
         colorSchemeSeed: const Color(0xFF5C6BC0),
       ),
-      home: const HomeScreen(),
+      home: const _AuthGate(),
     );
+  }
+}
+
+/// Shows the sign-in screen until a user is authenticated, then the home
+/// screen. In local-only mode (no Supabase) it always shows home.
+class _AuthGate extends ConsumerWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authStateProvider);
+    final signedIn = auth.value ?? false;
+    return signedIn ? const HomeScreen() : const AuthScreen();
   }
 }
