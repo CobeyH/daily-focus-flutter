@@ -17,6 +17,7 @@ dependencies:
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
   syncfusion_flutter_charts: ^34.2.6
+  supabase_flutter: ^2.17.2
 
 dev_dependencies:
   flutter_test:

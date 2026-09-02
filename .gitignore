@@ -1,6 +1,11 @@
 # Do not remove or rename entries in this file, only add new ones
 # See https://github.com/flutter/flutter/issues/128635 for more context.
 
+# Supabase credentials — never commit the real config with keys.
+# Copy lib/config/supabase_config.example.dart → supabase_config.dart and fill
+# in real values locally; the real file stays untracked.
+lib/config/supabase_config.dart
+
 # Miscellaneous
 *.class
 *.lock

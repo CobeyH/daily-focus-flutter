@@ -6,6 +6,9 @@ import '../models/task.dart';
 import '../models/task_entry.dart';
 import '../services/notification_service.dart';
 import '../storage/app_storage.dart';
+import '../storage/remote_storage.dart';
+import '../storage/supabase_storage.dart';
+import '../storage/sync_coordinator.dart';
 import '../utils/dates.dart';
 import 'timer_controller.dart';
 
@@ -15,9 +18,37 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
       'sharedPreferencesProvider must be overridden in main()');
 });
 
+/// Whether Supabase was successfully initialized. `false` (the default) puts
+/// the app in local-only mode.
+final supabaseAvailableProvider =
+    Provider<bool>((ref) => false, name: 'supabaseAvailable');
+
 /// Provides the persistence layer.
 final storageProvider = Provider<AppStorage>((ref) {
   return AppStorage(ref.watch(sharedPreferencesProvider));
+});
+
+/// The remote (cloud) sync backend, if Supabase is available.
+final remoteStorageProvider = Provider<RemoteStorage?>((ref) {
+  if (!ref.watch(supabaseAvailableProvider)) return null;
+  return SupabaseStorage();
+});
+
+/// Coordinates local <-> remote sync. Null when Supabase isn't configured (i.e.
+/// pure local mode).
+final syncCoordinatorProvider = Provider<SyncCoordinator?>((ref) {
+  final remote = ref.watch(remoteStorageProvider);
+  if (remote == null) return null;
+  final coordinator = SyncCoordinator(
+    ref.watch(storageProvider),
+    remote,
+    onLocalChanged: () async {
+      // The remote merge rewrote the local store; refresh the in-memory state.
+      ref.invalidate(appControllerProvider);
+    },
+  );
+  ref.onDispose(coordinator.dispose);
+  return coordinator;
 });
 
 /// Provides the notification service singleton.
@@ -45,12 +76,40 @@ class AppState {
 class AppController extends Notifier<AppState> {
   AppStorage get _storage => ref.read(storageProvider);
 
+  /// Push the current local state to the cloud (best-effort, no-op offline).
+  Future<void> _pushLocal() async {
+    final coordinator = ref.read(syncCoordinatorProvider);
+    if (coordinator == null) return;
+    try {
+      await coordinator.pushLocal();
+    } catch (e) {
+      // Offline or transient failure — the write still succeeded locally and
+      // will be pushed on the next successful sync.
+    }
+  }
+
   @override
   AppState build() {
-    return AppState(
+    final state = AppState(
       tasks: _storage.loadTasks(),
       entries: _storage.loadEntries(),
     );
+    _kickOffSync();
+    return state;
+  }
+
+  /// Best-effort initial sync: pull remote state in, then start observing
+  /// remote changes. Runs independently so the UI isn't blocked.
+  void _kickOffSync() {
+    final coordinator = ref.read(syncCoordinatorProvider);
+    if (coordinator == null) return;
+    Future.microtask(() async {
+      try {
+        await coordinator.ensureSignedInAndSync();
+      } catch (e) {
+        // Offline at startup — fall back to local-only until the next sync.
+      }
+    });
   }
 
   // ---- Task CRUD -----------------------------------------------------------
@@ -59,6 +118,7 @@ class AppController extends Notifier<AppState> {
     final tasks = [...state.tasks, task];
     state = AppState(tasks: tasks, entries: state.entries);
     await _storage.saveTasks(tasks);
+    await _pushLocal();
   }
 
   Future<void> updateTask(Task updated) async {
@@ -71,6 +131,7 @@ class AppController extends Notifier<AppState> {
     // reconcile the timer so the displayed remaining time matches the new
     // goal instead of the old one.
     await ref.read(timerControllerProvider.notifier).reconcileForTask(updated);
+    await _pushLocal();
   }
 
   Future<void> deleteTask(String id) async {
@@ -83,6 +144,13 @@ class AppController extends Notifier<AppState> {
     // Cancel any running/paused countdown and its scheduled notification
     // so a delete doesn't leave an orphan alarm pointing at a gone task.
     await ref.read(timerControllerProvider.notifier).clearFor(id);
+    // Remove the task (and its cascaded entries) from the cloud too.
+    final coordinator = ref.read(syncCoordinatorProvider);
+    if (coordinator != null) {
+      try {
+        await coordinator.deleteTask(id);
+      } catch (_) {}
+    }
   }
 
   // ---- Daily progress ------------------------------------------------------
@@ -255,6 +323,7 @@ class AppController extends Notifier<AppState> {
     }
     state = AppState(tasks: state.tasks, entries: entries);
     await _storage.saveEntries(entries);
+    await _pushLocal();
   }
 }
 
