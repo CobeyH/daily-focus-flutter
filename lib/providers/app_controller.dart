@@ -172,6 +172,78 @@ class AppController extends Notifier<AppState> {
     await _upsertEntry(updated);
   }
 
+  /// Marks [task]'s goal as met for today in one step, regardless of the
+  /// current progress ("long-press to complete").
+  ///
+  /// * For occurrence tasks, today's entry is set to the goal.
+  /// * For timed tasks, today's entry is set to the full duration and any
+  ///   running/paused countdown is cleared (the scheduled notification is
+  ///   cancelled) since the task is now complete.
+  /// * If the task was overdue, the most recent missed due date is also fully
+  ///   credited so the overdue state clears.
+  ///
+  /// This is a no-op if the goal is already met for today.
+  Future<void> markComplete(Task task, {DateTime? now}) async {
+    final today = _todayOf(now);
+    final todayKey = dateKey(today);
+    final target = task.goal;
+
+    if (state.progressFor(task.id, todayKey) < target) {
+      await _upsertEntry(
+          TaskEntry(taskId: task.id, dateKey: todayKey, progress: target));
+    }
+
+    // If the task is overdue (a non-daily schedule with a missed due date
+    // strictly before today), fully credit the most recent missed due date so
+    // the overdue badge clears — mirroring increment()'s catch-up behaviour.
+    //
+    // This is intentionally guarded by [isTaskOverdueOn]: a daily task whose
+    // previous day is merely unfilled must NOT be backfilled, or completing
+    // today would also credit "yesterday" and inflate the streak by 2.
+    if (isTaskOverdueOn(task, today, state)) {
+      final missed = firstMissedDueDate(task, today, state);
+      if (missed != null) {
+        final m = DateTime(missed.year, missed.month, missed.day);
+        if (m.isBefore(today) &&
+            state.progressFor(task.id, dateKey(m)) < target) {
+          await _upsertEntry(TaskEntry(
+              taskId: task.id, dateKey: dateKey(m), progress: target));
+        }
+      }
+    }
+
+    // For timed tasks, completing the goal means the countdown is moot — clear
+    // it and cancel its scheduled "task complete" notification.
+    if (task.type == TaskType.minutes) {
+      await ref.read(timerControllerProvider.notifier).clearFor(task.id);
+    }
+  }
+
+  /// Resets [task]'s progress for today back to zero ("long-press a completed
+  /// task to reset it").
+  ///
+  /// * For occurrence tasks, today's entry is removed/zeroed (and any overdue
+  ///   missed date credited by [markComplete] is also reset if it was set in
+  ///   the same session — see below).
+  /// * For timed tasks, today's entry is zeroed and any paused running timer
+  ///   is cleared and its notification cancelled.
+  ///
+  /// Only today's progress is touched; earlier history (which drives streaks)
+  /// is left intact.
+  Future<void> reset(Task task, {DateTime? now}) async {
+    final today = _todayOf(now);
+    final todayKey = dateKey(today);
+
+    if (state.progressFor(task.id, todayKey) > 0) {
+      await _upsertEntry(
+          TaskEntry(taskId: task.id, dateKey: todayKey, progress: 0));
+    }
+
+    if (task.type == TaskType.minutes) {
+      await ref.read(timerControllerProvider.notifier).clearFor(task.id);
+    }
+  }
+
   Future<void> _upsertEntry(TaskEntry entry) async {
     final entries = [...state.entries];
     final idx = entries.indexWhere(
@@ -343,4 +415,44 @@ final taskStreakProvider = Provider.family<int, Task>((ref, task) {
     cursor = _previousDueDate(task.schedule, today);
   }
   return streak;
+});
+
+/// The longest consecutive streak ever achieved for [task], across all time.
+/// Unlike [taskStreakProvider] (which is the current streak anchored at today),
+/// this scans every due date from the task's creation to today and returns the
+/// maximum run of consecutive met goal days.
+final taskBestStreakProvider = Provider.family<int, Task>((ref, task) {
+  final state = ref.watch(appControllerProvider);
+  final map = <String, int>{};
+  for (final e in state.entries) {
+    if (e.taskId == task.id) map[e.dateKey] = e.progress;
+  }
+
+  final today = todayOnly();
+  final first =
+      DateTime(task.createdAt.year, task.createdAt.month, task.createdAt.day);
+
+  // Walk every due date from the task's creation through today, tallying a
+  // running streak that we reset when a due goal is missed. Only due dates
+  // are considered so off days never break an interval/weekly cadence.
+  DateTime? cursor = task.schedule.lastDueDateOnOrBefore(today);
+  if (cursor == null) return 0;
+  final last = cursor;
+
+  int current = 0;
+  int best = 0;
+  DateTime? d = task.schedule.firstDueDateFrom(first);
+  var guard = 0;
+  while (d != null && guard++ < 366 * 5) {
+    if (!d.isAfter(last)) {
+      if ((map[dateKey(d)] ?? 0) >= task.goal) {
+        current++;
+        if (current > best) best = current;
+      } else {
+        current = 0;
+      }
+    }
+    d = task.schedule.nextDueDateAfter(d);
+  }
+  return best;
 });

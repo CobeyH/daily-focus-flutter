@@ -5,6 +5,7 @@ import '../models/schedule.dart';
 import '../models/task.dart';
 import '../providers/app_controller.dart';
 import '../utils/dates.dart';
+import 'streak_screen.dart';
 import 'task_card.dart';
 import 'task_creation.dart';
 
@@ -35,7 +36,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text('Daily Focus'),
         centerTitle: true,
         actions: [
-          if (ref.watch(tasksProvider).isNotEmpty)
+          if (ref.watch(tasksProvider).isNotEmpty) ...[
+            IconButton(
+              tooltip: 'Streaks',
+              icon: const Icon(Icons.local_fire_department_outlined),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const StreakScreen()),
+                );
+              },
+            ),
             IconButton(
               tooltip: _showAll ? 'Hide non-due tasks' : 'Show all tasks',
               icon: Icon(_showAll
@@ -43,6 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   : Icons.visibility_outlined),
               onPressed: () => setState(() => _showAll = !_showAll),
             ),
+          ],
         ],
       ),
       body: tasks.isEmpty

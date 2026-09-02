@@ -95,129 +95,141 @@ class TaskCard extends ConsumerWidget {
         color: Colors.red,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: isActive
-              ? BorderSide(color: color, width: 2)
-              : BorderSide(color: Colors.grey.shade200),
-        ),
-        elevation: isActive ? 4 : 1,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              _ProgressRing(fraction: fraction, color: color, icon: task.icon),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            task.name,
-                            style: const TextStyle(
-                                fontSize: 17, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
+      child: GestureDetector(
+        // Long-press anywhere on the card completes the task for today (or
+        // resets it to zero if it's already complete — handy for undoing an
+        // accidental auto-complete). `opaque` behavior ensures the long-press
+        // is recognized regardless of any inner interactive widgets.
+        behavior: HitTestBehavior.opaque,
+        onLongPress: done
+            ? () => controller.reset(task)
+            : () => controller.markComplete(task),
+        child: Card(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: isActive
+                ? BorderSide(color: color, width: 2)
+                : BorderSide(color: Colors.grey.shade200),
+          ),
+          elevation: isActive ? 4 : 1,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                _ProgressRing(
+                    fraction: fraction, color: color, icon: task.icon),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              task.name,
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          tooltip: 'Edit',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints:
-                              const BoxConstraints(minWidth: 32, minHeight: 32),
-                          icon: const Icon(Icons.edit, size: 18),
-                          onPressed: () {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (_) =>
-                                  TaskCreationScreen(existing: task),
-                            ));
-                          },
-                        ),
-                        IconButton(
-                          tooltip: 'Delete',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints:
-                              const BoxConstraints(minWidth: 32, minHeight: 32),
-                          icon: const Icon(Icons.delete_outline,
-                              size: 18, color: Colors.red),
-                          onPressed: () async {
-                            final ok = await _confirmDelete(context, task.name);
-                            if (ok == true) {
-                              await controller.deleteTask(task.id);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      task.type == TaskType.minutes
-                          ? 'Goal: ${formatGoalDuration(Duration(seconds: task.goal))} today'
-                          : '$progress / ${task.goal} $unit today',
-                      style: TextStyle(
-                        color: greyedOut
-                            ? Colors.grey.shade400
-                            : Colors.grey.shade600,
+                          IconButton(
+                            tooltip: 'Edit',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 32, minHeight: 32),
+                            icon: const Icon(Icons.edit, size: 18),
+                            onPressed: () {
+                              Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) =>
+                                    TaskCreationScreen(existing: task),
+                              ));
+                            },
+                          ),
+                          IconButton(
+                            tooltip: 'Delete',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 32, minHeight: 32),
+                            icon: const Icon(Icons.delete_outline,
+                                size: 18, color: Colors.red),
+                            onPressed: () async {
+                              final ok =
+                                  await _confirmDelete(context, task.name);
+                              if (ok == true) {
+                                await controller.deleteTask(task.id);
+                              }
+                            },
+                          ),
+                        ],
                       ),
-                    ),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.event_repeat,
-                          size: 14,
+                      const SizedBox(height: 4),
+                      Text(
+                        task.type == TaskType.minutes
+                            ? 'Goal: ${formatGoalDuration(Duration(seconds: task.goal))} today'
+                            : '$progress / ${task.goal} $unit today',
+                        style: TextStyle(
                           color: greyedOut
                               ? Colors.grey.shade400
                               : Colors.grey.shade600,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          scheduleDesc,
-                          style: TextStyle(
+                      ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.event_repeat,
+                            size: 14,
                             color: greyedOut
                                 ? Colors.grey.shade400
                                 : Colors.grey.shade600,
-                            fontSize: 12,
                           ),
-                        ),
-                        if (overdue) ...[
-                          const SizedBox(width: 8),
-                          _OverdueBadge(
-                              missedDate:
-                                  ref.watch(taskMissedDueDateProvider(task))),
+                          const SizedBox(width: 4),
+                          Text(
+                            scheduleDesc,
+                            style: TextStyle(
+                              color: greyedOut
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (overdue) ...[
+                            const SizedBox(width: 8),
+                            _OverdueBadge(
+                                missedDate:
+                                    ref.watch(taskMissedDueDateProvider(task))),
+                          ],
                         ],
-                      ],
-                    ),
-                    if (task.type == TaskType.minutes)
-                      _TimedStatus(task: task, color: color),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.local_fire_department,
-                            size: 16, color: Colors.orange),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$streak day${streak == 1 ? '' : 's'} streak',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      if (task.type == TaskType.minutes)
+                        _TimedStatus(task: task, color: color),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.local_fire_department,
+                              size: 16, color: Colors.orange),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$streak day${streak == 1 ? '' : 's'} streak',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              if (greyedOut)
-                _OffDayAction(task: task, color: color)
-              else if (task.type == TaskType.minutes)
-                _TimedAction(task: task, color: color, done: done)
-              else
-                _CountAction(task: task, color: color, done: done),
-            ],
+                const SizedBox(width: 8),
+                if (greyedOut)
+                  _OffDayAction(task: task, color: color)
+                else if (task.type == TaskType.minutes)
+                  _TimedAction(task: task, color: color, done: done)
+                else
+                  _CountAction(task: task, color: color, done: done),
+              ],
+            ),
           ),
         ),
       ),

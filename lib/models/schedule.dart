@@ -23,6 +23,11 @@ sealed class Schedule {
   /// within a reasonable horizon.
   DateTime? nextDueDateAfter(DateTime from);
 
+  /// The first due date on or after [from], or `null` if none exists within a
+  /// reasonable horizon. Used when walking a schedule forward (e.g. streak
+  /// computation).
+  DateTime? firstDueDateFrom(DateTime from);
+
   /// The most recent due date on or before [day], or `null` if none exists.
   DateTime? lastDueDateOnOrBefore(DateTime day);
 
@@ -73,6 +78,10 @@ class ScheduleDaily extends Schedule {
   @override
   DateTime? nextDueDateAfter(DateTime from) =>
       DateTime(from.year, from.month, from.day).add(const Duration(days: 1));
+
+  @override
+  DateTime? firstDueDateFrom(DateTime from) =>
+      DateTime(from.year, from.month, from.day);
 
   @override
   DateTime? lastDueDateOnOrBefore(DateTime day) =>
@@ -132,6 +141,16 @@ class ScheduleInterval extends Schedule {
     var candidate =
         DateTime(from.year, from.month, from.day).add(const Duration(days: 1));
     for (var i = 0; i < 366 * 5; i++) {
+      if (isDueOn(candidate)) return candidate;
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    return null;
+  }
+
+  @override
+  DateTime? firstDueDateFrom(DateTime from) {
+    var candidate = DateTime(from.year, from.month, from.day);
+    for (var i = 0; i < 366; i++) {
       if (isDueOn(candidate)) return candidate;
       candidate = candidate.add(const Duration(days: 1));
     }
@@ -203,6 +222,16 @@ class ScheduleWeekly extends Schedule {
   DateTime? nextDueDateAfter(DateTime from) {
     var candidate =
         DateTime(from.year, from.month, from.day).add(const Duration(days: 1));
+    for (var i = 0; i < 14; i++) {
+      if (isDueOn(candidate)) return candidate;
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    return null;
+  }
+
+  @override
+  DateTime? firstDueDateFrom(DateTime from) {
+    var candidate = DateTime(from.year, from.month, from.day);
     for (var i = 0; i < 14; i++) {
       if (isDueOn(candidate)) return candidate;
       candidate = candidate.add(const Duration(days: 1));
