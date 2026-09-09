@@ -56,6 +56,27 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    final coordinator = ref.read(syncCoordinatorProvider);
+    try {
+      if (coordinator == null) {
+        setState(() => _error = 'Sync isn\'t configured yet.');
+        return;
+      }
+      await coordinator.signInWithGoogle();
+      // Success: auth state stream will flip the app to the home screen.
+    } catch (e) {
+      if (mounted) setState(() => _error = _friendly(e.toString()));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   String _friendly(String raw) {
     // Trim Supabase's verbose message prefix and collapse to something human.
     if (raw.contains('already registered')) {
@@ -69,6 +90,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       return 'Please confirm your email (check your inbox), then sign in.';
     }
     if (raw.contains('Password should contain')) return 'Password is too weak.';
+    if (raw.contains('TimeoutException')) {
+      return 'Google sign-in timed out. Please try again.';
+    }
+    if (raw.contains('Could not open the browser')) {
+      return 'Could not open a browser for Google sign-in.';
+    }
     return raw
         .replaceAll(RegExp(r'^.*?(Exception|error):', caseSensitive: false), '')
         .trim();
@@ -177,6 +204,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       child: Text(_registering
                           ? 'Already have an account? Sign in'
                           : 'New here? Create an account'),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'OR',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _signInWithGoogle,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      icon: const Text(
+                        'G',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      label: const Text('Continue with Google'),
                     ),
                   ],
                 ),

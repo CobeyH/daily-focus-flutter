@@ -48,6 +48,13 @@ abstract class RemoteStorage {
   /// (e.g. wrong credentials — or the email hasn't been verified yet).
   Future<void> signIn({required String email, required String password});
 
+  /// Signs in with Google using Supabase OAuth.
+  ///
+  /// Opens the system browser and completes when the OAuth callback has
+  /// established a session. Throws if the browser cannot be opened, the user
+  /// rejects the request, or the callback times out.
+  Future<void> signInWithGoogle();
+
   /// Signs out the current user. Safe to call when not signed in.
   Future<void> signOut();
 

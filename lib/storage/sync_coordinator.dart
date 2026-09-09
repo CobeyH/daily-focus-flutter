@@ -65,6 +65,13 @@ class SyncCoordinator {
     await _afterAuthenticated();
   }
 
+  /// Signs in through Google's browser-based OAuth flow, then merges the
+  /// device's existing data with the authenticated account.
+  Future<void> signInWithGoogle() async {
+    await _remote.signInWithGoogle();
+    await _afterAuthenticated();
+  }
+
   /// Signs out. Stops observing remote changes for the current user.
   Future<void> signOut() async {
     await _sub?.cancel();

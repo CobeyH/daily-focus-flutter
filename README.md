@@ -15,3 +15,16 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Supabase Google sign-in
+
+Google OAuth is handled by Supabase and opens in the system browser. In the
+Supabase dashboard, enable the Google provider and add both of these under
+**Authentication → URL Configuration → Redirect URLs**:
+
+- `com.dailyfocus.app://login-callback` for Android
+- `http://localhost:*/auth/callback` for Linux desktop
+
+The Linux callback binds only to the local machine and uses a temporary port.
+Supabase's default PKCE flow verifies the returned authorization code before a
+session is created.

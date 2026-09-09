@@ -9,6 +9,7 @@ import 'package:daily_focus/main.dart';
 import 'package:daily_focus/models/schedule.dart';
 import 'package:daily_focus/models/task.dart';
 import 'package:daily_focus/providers/app_controller.dart';
+import 'package:daily_focus/screens/auth_screen.dart';
 import 'package:daily_focus/utils/dates.dart';
 
 void main() {
@@ -22,10 +23,23 @@ void main() {
         child: const DailyFocusApp(),
       ),
     );
+    // Allow the local-only auth stream to emit its initial signed-in value.
+    await tester.pump();
 
     expect(find.text('No tasks yet'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
+  });
+
+  testWidgets('auth screen offers Google sign-in', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: AuthScreen()),
+      ),
+    );
+
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsOneWidget);
   });
 
   group('Schedule', () {
