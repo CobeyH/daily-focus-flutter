@@ -126,3 +126,9 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Install the desktop launcher for the Linux application.
+set(INSTALL_BUNDLE_APPS_DIR "${CMAKE_INSTALL_PREFIX}/share/applications")
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/runner/daily_focus.desktop"
+  DESTINATION "${INSTALL_BUNDLE_APPS_DIR}"
+  COMPONENT Runtime)

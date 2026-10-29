@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owns(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/tasks/{taskId} {
+      allow read, delete: if owns(userId);
+      allow create, update: if owns(userId)
+        && request.resource.data.id == taskId
+        && request.resource.data.name is string
+        && request.resource.data.goal is int;
+    }
+    match /users/{userId}/entries/{entryId} {
+      allow read, delete: if owns(userId);
+      allow create, update: if owns(userId)
+        && request.resource.data.taskId is string
+        && request.resource.data.dateKey is string
+        && entryId == request.resource.data.taskId + '_' + request.resource.data.dateKey
+        && request.resource.data.progress is int;
+    }
+    match /users/{userId}/active_timers/{taskId} {
+      allow read, delete: if owns(userId);
+      allow create, update: if owns(userId)
+        && request.resource.data.taskId == taskId
+        && request.resource.data.remainingMs is int
+        && request.resource.data.paused is bool;
+    }
+  }
+}

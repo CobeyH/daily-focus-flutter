@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Daily Focus
+Comment=A habit and streak tracker
+Exec=daily_focus %U
+Icon=daily_focus
+Terminal=false
+Categories=Utility;
+StartupNotify=true

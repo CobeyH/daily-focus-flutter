@@ -23,6 +23,9 @@ void main() {
       ),
     );
 
+    // The auth gate receives its initial local-mode state asynchronously.
+    await tester.pumpAndSettle();
+
     expect(find.text('No tasks yet'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);

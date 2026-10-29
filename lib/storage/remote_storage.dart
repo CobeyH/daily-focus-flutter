@@ -48,6 +48,13 @@ abstract class RemoteStorage {
   /// (e.g. wrong credentials — or the email hasn't been verified yet).
   Future<void> signIn({required String email, required String password});
 
+  /// Signs in with Google via the browser. Returns after the Firebase session
+  /// is established. Throws on failure or cancellation.
+  Future<void> signInWithGoogle();
+
+  /// Sends a password-reset email to [email]. Throws on failure.
+  Future<void> resetPassword({required String email});
+
   /// Signs out the current user. Safe to call when not signed in.
   Future<void> signOut();
 

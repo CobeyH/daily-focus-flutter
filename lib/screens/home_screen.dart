@@ -54,6 +54,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: () => setState(() => _showAll = !_showAll),
             ),
           ],
+          if (ref.watch(syncCoordinatorProvider) != null)
+            IconButton(
+              tooltip: 'Sign out',
+              icon: const Icon(Icons.logout),
+              onPressed: () => _confirmSignOut(context),
+            ),
         ],
       ),
       body: tasks.isEmpty
@@ -77,6 +83,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final today = todayOnly();
     return isTaskDueOn(t, today) ||
         isTaskOverdueOn(t, today, ref.read(appControllerProvider));
+  }
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+            'Your tasks will stay on this device and remain synced to your account.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final coordinator = ref.read(syncCoordinatorProvider);
+    if (coordinator != null) {
+      await coordinator.signOut();
+    }
   }
 }
 

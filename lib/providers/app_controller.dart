@@ -7,7 +7,6 @@ import '../models/task_entry.dart';
 import '../services/notification_service.dart';
 import '../storage/app_storage.dart';
 import '../storage/remote_storage.dart';
-import '../storage/supabase_storage.dart';
 import '../storage/sync_coordinator.dart';
 import '../utils/dates.dart';
 import 'timer_controller.dart';
@@ -18,23 +17,18 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
       'sharedPreferencesProvider must be overridden in main()');
 });
 
-/// Whether Supabase was successfully initialized. `false` (the default) puts
-/// the app in local-only mode.
-final supabaseAvailableProvider =
-    Provider<bool>((ref) => false, name: 'supabaseAvailable');
+final cloudInitializationErrorProvider = Provider<String?>((ref) => null);
 
 /// Provides the persistence layer.
 final storageProvider = Provider<AppStorage>((ref) {
   return AppStorage(ref.watch(sharedPreferencesProvider));
 });
 
-/// The remote (cloud) sync backend, if Supabase is available.
-final remoteStorageProvider = Provider<RemoteStorage?>((ref) {
-  if (!ref.watch(supabaseAvailableProvider)) return null;
-  return SupabaseStorage();
-});
+/// The Firebase client is initialized in main and injected here. A null backend
+/// allows local-only widget tests without connecting to Firebase.
+final remoteStorageProvider = Provider<RemoteStorage?>((ref) => null);
 
-/// Coordinates local <-> remote sync. Null when Supabase isn't configured (i.e.
+/// Coordinates local <-> remote sync. Null when a backend isn't configured (i.e.
 /// pure local mode).
 final syncCoordinatorProvider = Provider<SyncCoordinator?>((ref) {
   final remote = ref.watch(remoteStorageProvider);
@@ -53,7 +47,7 @@ final syncCoordinatorProvider = Provider<SyncCoordinator?>((ref) {
 
 /// Whether the user is signed in.
 ///
-/// When Supabase isn't configured, the app is effectively "signed in" (local
+/// When a backend isn't configured, the app is effectively "signed in" (local
 /// mode) so the home screen shows. When it is configured, this reflects the
 /// realtime auth state: `null`/`false` → show the auth gate, `true` → home.
 final authStateProvider = StreamProvider<bool?>((ref) {

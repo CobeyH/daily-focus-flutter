@@ -39,7 +39,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final coordinator = ref.read(syncCoordinatorProvider);
     try {
       if (coordinator == null) {
-        // Supabase isn't configured; nothing to do.
+        // The cloud backend is not configured.
         setState(() => _error = 'Sync isn\'t configured yet.');
         return;
       }
@@ -50,14 +50,86 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
       // Success: auth state stream will flip the app to the home screen.
     } catch (e) {
-      setState(() => _error = _friendly(e.toString()));
+      if (mounted) setState(() => _error = _friendly(e.toString()));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      setState(() => _error = 'Enter your email address first.');
+      return;
+    }
+
+    final coordinator = ref.read(syncCoordinatorProvider);
+    if (coordinator == null) {
+      setState(() => _error = 'Sync isn\'t configured yet.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await coordinator.resetPassword(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset email sent. Check your inbox.'),
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _error = _friendly(e.toString()));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    final coordinator = ref.read(syncCoordinatorProvider);
+    if (coordinator == null) {
+      setState(() => _error = 'Sync isn\'t configured yet.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await coordinator.signInWithGoogle();
+      // Success: auth state stream will flip the app to the home screen.
+    } catch (e) {
+      if (mounted) setState(() => _error = _friendly(e.toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   String _friendly(String raw) {
-    // Trim Supabase's verbose message prefix and collapse to something human.
+    if (raw.contains('EMAIL_EXISTS')) {
+      return 'That email is already registered.';
+    }
+    if (raw.contains('INVALID_LOGIN_CREDENTIALS') ||
+        raw.contains('INVALID_PASSWORD') ||
+        raw.contains('EMAIL_NOT_FOUND')) {
+      return 'Incorrect email or password.';
+    }
+    if (raw.contains('WEAK_PASSWORD')) {
+      return 'Use at least 6 characters for your password.';
+    }
+    if (raw.contains('INVALID_EMAIL')) return 'Enter a valid email address.';
+    if (raw.contains('USER_DISABLED')) return 'This account has been disabled.';
+    if (raw.contains('OPERATION_NOT_ALLOWED') ||
+        raw.contains('CONFIGURATION_NOT_FOUND')) {
+      return 'This sign-in method needs to be enabled in Firebase Authentication.';
+    }
+    if (raw.contains('SocketException') || raw.contains('ClientException')) {
+      return 'Could not connect. Check your internet connection and try again.';
+    }
     if (raw.contains('already registered')) {
       return 'That email is already registered.';
     }
@@ -166,6 +238,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             )
                           : Text(_registering ? 'Create account' : 'Sign in'),
                     ),
+                    if (!_registering) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'or',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _signInWithGoogle,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        icon: const Icon(Icons.g_mobiledata, size: 28),
+                        label: const Text('Continue with Google'),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: _busy
@@ -178,6 +277,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ? 'Already have an account? Sign in'
                           : 'New here? Create an account'),
                     ),
+                    if (!_registering)
+                      TextButton(
+                        onPressed: _busy ? null : _forgotPassword,
+                        child: const Text('Forgot password?'),
+                      ),
                   ],
                 ),
               ),

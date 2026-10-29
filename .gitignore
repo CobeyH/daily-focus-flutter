@@ -144,3 +144,10 @@ app.*.symbols
 !.vscode/settings.json
 ios/Podfile
 macos/Podfile
+
+# Firebase migration: commit resolved Dart dependencies and ignore local tools.
+!pubspec.lock
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

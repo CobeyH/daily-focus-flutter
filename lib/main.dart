@@ -1,38 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'config/supabase_config.dart';
 import 'providers/app_controller.dart';
 import 'providers/timer_controller.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
+import 'storage/firebase_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase for cross-device sync. If the placeholders are still
-  // present (a project hasn't been configured yet), fall back to local-only
-  // mode so development isn't blocked.
-  bool supabaseReady = false;
-  try {
-    await Supabase.initialize(
-      url: SupabaseConfig.supabaseUrl,
-      publishableKey: SupabaseConfig.supabasePublishableKey,
-    );
-    supabaseReady = true;
-  } catch (e) {
-    debugPrint('Supabase init skipped (local-only mode): $e');
-  }
-
   final prefs = await SharedPreferences.getInstance();
+  FirebaseStorage? remote;
+  String? initializationError;
+  try {
+    remote = await FirebaseStorage.open();
+  } catch (e) {
+    initializationError = 'Could not open secure sign-in storage. $e';
+  }
 
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
-        supabaseAvailableProvider.overrideWithValue(supabaseReady),
+        remoteStorageProvider.overrideWith((ref) {
+          ref.onDispose(() => remote?.dispose());
+          return remote;
+        }),
+        cloudInitializationErrorProvider.overrideWithValue(initializationError),
       ],
       child: const DailyFocusApp(),
     ),
@@ -86,12 +82,29 @@ class _DailyFocusAppState extends ConsumerState<DailyFocusApp>
 }
 
 /// Shows the sign-in screen until a user is authenticated, then the home
-/// screen. In local-only mode (no Supabase) it always shows home.
+/// screen. Tests can use a null remote backend for local-only mode.
 class _AuthGate extends ConsumerWidget {
   const _AuthGate();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final error = ref.watch(cloudInitializationErrorProvider);
+    if (error != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(error),
+                TextButton(onPressed: main, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final auth = ref.watch(authStateProvider);
     final signedIn = auth.value ?? false;
     return signedIn ? const HomeScreen() : const AuthScreen();

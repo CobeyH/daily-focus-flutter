@@ -65,6 +65,19 @@ class SyncCoordinator {
     await _afterAuthenticated();
   }
 
+  /// Signs in with Google via the OAuth flow. The browser opens, the user
+  /// authenticates, and Firebase establishes the session before returning.
+  /// Then merges the on-device data into the account.
+  Future<void> signInWithGoogle() async {
+    await _remote.signInWithGoogle();
+    await _afterAuthenticated();
+  }
+
+  /// Sends a password-reset email to [email].
+  Future<void> resetPassword({required String email}) async {
+    await _remote.resetPassword(email: email);
+  }
+
   /// Signs out. Stops observing remote changes for the current user.
   Future<void> signOut() async {
     await _sub?.cancel();

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Sign in to Daily Focus</title>
+  <style>
+    body { color: #24263d; background: #f5f6ff; font: 18px/1.5 system-ui;
+      max-width: 30rem; margin: 12vh auto; padding: 24px; }
+    main { background: white; padding: 32px; border-radius: 20px; }
+    h1 { margin-top: 0; font-size: 28px; }
+    button { font: inherit; cursor: pointer; background: #5c6bc0; color: white;
+      border: 0; border-radius: 10px; padding: 12px 20px; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #status { min-height: 3em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sign in to Daily Focus</h1>
+    <p>Choose your Google account, then return to the app.</p>
+    <button id="sign-in" disabled>Continue with Google</button>
+    <p id="status" role="status">Preparing sign-in…</p>
+  </main>
+  <script type="module" src="./sign-in.js"></script>
+</body>
+</html>
