@@ -141,6 +141,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       return 'Please confirm your email (check your inbox), then sign in.';
     }
     if (raw.contains('Password should contain')) return 'Password is too weak.';
+    if (raw.contains('TimeoutException')) {
+      return 'Google sign-in timed out. Please try again.';
+    }
+    if (raw.contains('Could not open the browser')) {
+      return 'Could not open a browser for Google sign-in.';
+    }
     return raw
         .replaceAll(RegExp(r'^.*?(Exception|error):', caseSensitive: false), '')
         .trim();
