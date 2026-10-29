@@ -3,6 +3,36 @@
 A Flutter habit and streak tracker for Android and Linux. Task data stays in
 SharedPreferences for immediate local access and syncs to Firebase when signed in.
 
+## Task scheduling
+
+Create a task, or choose **Task options → Edit task**, then open **Timing & flexibility**:
+
+- **Show in Today**: the due day or up to 30 days earlier, with an appearance time.
+- **Due time**: a specific local time, or end of day.
+- **Grace period**: none (strict), or up to 30 calendar days late. A Wednesday
+  task with two grace days can be completed through Friday at the same due time.
+
+Today shows available tasks and collapses completed/skipped occurrences. Upcoming
+shows the next unopened occurrence for each task; All includes off-day tasks.
+History distinguishes on-time, within-grace, late, missed, skipped, and rest days.
+
+Progress belongs to one scheduled due date. Early/late completions store their
+actual completion time; undo targets that same occurrence, including after sync.
+Completion within grace preserves the streak. Beyond grace it is recorded as
+late and does not repair the streak. Explicit skips preserve it without adding.
+
+If grace windows overlap, the older unfinished occurrence is offered first.
+Once a new cycle is due, an expired older cycle stays in history rather than
+building an unlimited backlog. Until then, an unfinished recurring task remains
+visible. Fixed schedules never slide with completion. Monthly tasks on the 29th,
+30th, or 31st use the last day of shorter months. All times follow device local
+time; grace periods and recurrence use calendar arithmetic across DST.
+
+Existing tasks default to no grace and same-day visibility. Existing completion
+history is retained without inventing timestamps. Editing timing does not restart
+a running timer. Deadline reminders are not added; timer alerts retain their
+existing platform support.
+
 ## Firebase backend
 
 The project is `daily-focus-cobey`, on Firebase's free Spark plan. Authentication
@@ -51,10 +81,10 @@ Service keyring. Android uses the Flutter project's existing SDK configuration.
 
 ```sh
 flutter analyze
-flutter test
+TZ=America/Vancouver flutter test
 node --test test/google_callback.test.mjs
 firebase emulators:exec --project demo-daily-focus --only auth,firestore \
-  'flutter test test/firebase_storage_integration_test.dart --dart-define=FIREBASE_EMULATOR_TEST=true'
+  'TZ=America/Vancouver flutter test --dart-define=FIREBASE_EMULATOR_TEST=true'
 ```
 
 The integration tests cover email and Google credential sign-in, live sync,

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/app_controller.dart';
+import 'providers/clock_provider.dart';
 import 'providers/timer_controller.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'storage/firebase_storage.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +65,7 @@ class _DailyFocusAppState extends ConsumerState<DailyFocusApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.invalidate(clockProvider);
       ref.read(timerControllerProvider.notifier).checkForElapsed();
     }
   }
@@ -72,10 +75,9 @@ class _DailyFocusAppState extends ConsumerState<DailyFocusApp>
     return MaterialApp(
       title: 'Daily Focus',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF5C6BC0),
-      ),
+      theme: focusTheme(Brightness.light),
+      darkTheme: focusTheme(Brightness.dark),
+      themeMode: ThemeMode.system,
       home: const _AuthGate(),
     );
   }

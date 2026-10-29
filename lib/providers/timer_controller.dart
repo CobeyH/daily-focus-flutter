@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/active_timer.dart';
 import '../models/task.dart';
+import '../models/task_occurrence.dart';
 import '../services/notification_service.dart';
 import '../utils/dates.dart';
 import 'app_controller.dart';
+import 'clock_provider.dart';
 
 /// State of all timed (countdown) tasks, running or paused.
 ///
@@ -27,6 +29,7 @@ class TimerState {
 
 class TimerController extends Notifier<TimerState> {
   Timer? _ticker;
+  bool _processing = false;
 
   @override
   TimerState build() {
@@ -37,14 +40,15 @@ class TimerController extends Notifier<TimerState> {
     ref.onDispose(() => _ticker?.cancel());
     // Immediately process any timers that elapsed while the app was killed.
     Future.microtask(_processElapsed);
-    return TimerState(timers: map, now: DateTime.now());
+    return TimerState(timers: map, now: ref.read(timeSourceProvider)());
   }
 
   void _startTicker() {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (ref.mounted) {
-        state = TimerState(timers: state.timers, now: DateTime.now());
+        state = TimerState(
+            timers: state.timers, now: ref.read(timeSourceProvider)());
       }
       _processElapsed();
     });
@@ -61,14 +65,21 @@ class TimerController extends Notifier<TimerState> {
   /// If no timer exists, a new countdown is started from the task's daily
   /// goal. If a paused timer exists, it resumes from where it left off,
   /// retaining the progress already made.
-  Future<void> start(Task task) async {
+  Future<void> start(Task task, {String? occurrenceKey}) async {
     if (task.type != TaskType.minutes) return;
-    final now = DateTime.now();
+    final now = ref.read(timeSourceProvider)();
+    final occurrence =
+        currentOccurrence(task, ref.read(appControllerProvider).entries, now);
+    final key = occurrenceKey ?? occurrence?.key;
+    if (key == null) return;
     final existing = state.timers[task.id];
-    final timer = existing?.resume(now) ?? ActiveTimer.start(task, now: now);
+    final timer = existing != null &&
+            (existing.occurrenceKey == key || existing.occurrenceKey == null)
+        ? existing.resume(now)
+        : ActiveTimer.start(task, now: now, occurrenceKey: key);
 
     final timers = {...state.timers, task.id: timer};
-    state = TimerState(timers: timers, now: DateTime.now());
+    state = TimerState(timers: timers, now: ref.read(timeSourceProvider)());
     await _persist(timers);
 
     await _notifier.scheduleTaskComplete(
@@ -83,11 +94,11 @@ class TimerController extends Notifier<TimerState> {
   Future<void> cancel(Task task) async {
     final existing = state.timers[task.id];
     if (existing == null) return;
-    final now = DateTime.now();
+    final now = ref.read(timeSourceProvider)();
     final paused = existing.pause(now);
 
     final timers = {...state.timers, task.id: paused};
-    state = TimerState(timers: timers, now: DateTime.now());
+    state = TimerState(timers: timers, now: ref.read(timeSourceProvider)());
     await _persist(timers);
     await _notifier.cancel(_notificationIdFor(task.id));
   }
@@ -104,7 +115,7 @@ class TimerController extends Notifier<TimerState> {
     final existing = state.timers[task.id];
     if (existing == null) return false;
 
-    final now = DateTime.now();
+    final now = ref.read(timeSourceProvider)();
     final goalMs = Duration(seconds: task.goal).inMilliseconds;
     final currentRemainingMs = existing.remainingAt(now).inMilliseconds;
     if (currentRemainingMs == goalMs && !existing.paused) {
@@ -121,9 +132,10 @@ class TimerController extends Notifier<TimerState> {
       paused: existing.paused,
       remaining: Duration(milliseconds: goalMs),
       updatedAt: now,
+      occurrenceKey: existing.occurrenceKey,
     );
     final timers = {...state.timers, task.id: reset};
-    state = TimerState(timers: timers, now: DateTime.now());
+    state = TimerState(timers: timers, now: ref.read(timeSourceProvider)());
     await _persist(timers);
 
     await _notifier.cancel(_notificationIdFor(task.id));
@@ -143,7 +155,7 @@ class TimerController extends Notifier<TimerState> {
     final existing = state.timers[taskId];
     if (existing == null) return;
     final timers = {...state.timers}..remove(taskId);
-    state = TimerState(timers: timers, now: DateTime.now());
+    state = TimerState(timers: timers, now: ref.read(timeSourceProvider)());
     await _persist(timers);
     await _notifier.cancel(_notificationIdFor(taskId));
   }
@@ -157,24 +169,32 @@ class TimerController extends Notifier<TimerState> {
 
   /// Credits any running timer whose remaining time has reached zero.
   Future<void> _processElapsed() async {
-    final now = DateTime.now();
+    if (!ref.mounted || _processing) return;
+    final now = ref.read(timeSourceProvider)();
     final elapsed = state.timers.values
         .where((t) => t.isElapsed(now))
         .toList(growable: false);
     if (elapsed.isEmpty) return;
 
-    final timers = {...state.timers};
-    for (final t in elapsed) {
-      timers.remove(t.taskId);
-      await _completeTimedTask(t);
+    _processing = true;
+    try {
+      for (final t in elapsed) {
+        await _completeTimedTask(t);
+        if (!ref.mounted) return;
+        // A different timer may have started while completion was syncing.
+        if (identical(state.timers[t.taskId], t)) {
+          final timers = {...state.timers}..remove(t.taskId);
+          state =
+              TimerState(timers: timers, now: ref.read(timeSourceProvider)());
+        }
+      }
+      await _persist(state.timers);
+    } finally {
+      _processing = false;
     }
-    if (ref.mounted) {
-      state = TimerState(timers: timers, now: DateTime.now());
-    }
-    await _persist(timers);
   }
 
-  /// Credits a completed timer to the task on the day it was *started*.
+  /// Credits the pinned occurrence using the timer's actual finish instant.
   Future<void> _completeTimedTask(ActiveTimer timer) async {
     final tasks = ref.read(appControllerProvider).tasks;
     Task? found;
@@ -186,9 +206,14 @@ class TimerController extends Notifier<TimerState> {
     }
     if (found == null) return;
 
-    await ref
-        .read(appControllerProvider.notifier)
-        .recordTimedCompletion(found, dateKey(timer.startedAt));
+    await ref.read(appControllerProvider.notifier).recordTimedCompletion(
+        found,
+        timer.occurrenceKey ??
+            currentOccurrence(found, ref.read(appControllerProvider).entries,
+                    timer.startedAt.toLocal())
+                ?.key ??
+            dateKey(timer.startedAt.toLocal()),
+        completedAt: timer.updatedAt.add(timer.remaining).toLocal());
   }
 
   Future<void> _persist(Map<String, ActiveTimer> timers) async {

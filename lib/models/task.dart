@@ -1,6 +1,7 @@
 import 'package:uuid/uuid.dart';
 
 import 'schedule.dart';
+import 'task_timing.dart';
 
 /// The two kinds of tasks described by the product goals.
 ///
@@ -37,6 +38,8 @@ class Task {
   final int icon;
 
   final DateTime createdAt;
+  final DateTime? updatedAt;
+  final TaskTiming timing;
 
   /// How often the task is due. Defaults to [ScheduleDaily] (every day) for
   /// tasks created without an explicit schedule.
@@ -51,6 +54,8 @@ class Task {
     required this.color,
     required this.icon,
     required this.createdAt,
+    this.updatedAt,
+    this.timing = const TaskTiming(),
     this.schedule = const ScheduleDaily(),
   });
 
@@ -62,6 +67,7 @@ class Task {
     required int color,
     required int icon,
     Schedule schedule = const ScheduleDaily(),
+    TaskTiming timing = const TaskTiming(),
   }) {
     return Task(
       id: const Uuid().v4(),
@@ -73,6 +79,7 @@ class Task {
       icon: icon,
       createdAt: DateTime.now(),
       schedule: schedule,
+      timing: timing,
     );
   }
 
@@ -84,6 +91,8 @@ class Task {
     int? color,
     int? icon,
     Schedule? schedule,
+    TaskTiming? timing,
+    DateTime? updatedAt,
   }) {
     return Task(
       id: id,
@@ -95,6 +104,8 @@ class Task {
       icon: icon ?? this.icon,
       createdAt: createdAt,
       schedule: schedule ?? this.schedule,
+      timing: timing ?? this.timing,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -109,6 +120,8 @@ class Task {
         'icon': icon,
         'createdAt': createdAt.toIso8601String(),
         'schedule': schedule.toJson(),
+        'timing': timing.toJson(),
+        if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
       };
 
   factory Task.fromJson(Map<String, dynamic> json) {
@@ -133,6 +146,11 @@ class Task {
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
       schedule: schedule,
+      timing: json['timing'] is Map
+          ? TaskTiming.fromJson(
+              Map<String, dynamic>.from(json['timing'] as Map))
+          : const TaskTiming(),
+      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
     );
   }
 }

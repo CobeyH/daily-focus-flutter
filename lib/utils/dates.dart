@@ -14,3 +14,28 @@ DateTime todayOnly() {
   final n = DateTime.now();
   return DateTime(n.year, n.month, n.day);
 }
+
+DateTime dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+DateTime calendarDay(DateTime value, int offset) =>
+    DateTime(value.year, value.month, value.day + offset);
+int calendarDaysBetween(DateTime from, DateTime to) =>
+    DateTime.utc(to.year, to.month, to.day)
+        .difference(DateTime.utc(from.year, from.month, from.day))
+        .inDays;
+String shortDate(DateTime date) => '${const [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ][date.month - 1]} ${date.day}';
+String clockLabel(int minutes) =>
+    '${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}';

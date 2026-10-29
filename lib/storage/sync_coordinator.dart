@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../models/active_timer.dart';
 import '../models/task.dart';
@@ -85,25 +86,22 @@ class SyncCoordinator {
     await _remote.signOut();
   }
 
-  /// After a real account is established: push this device's local data up,
-  /// pull the (merged) cloud state down, then start observing. This is the
-  /// "merge device data into account" onboarding step.
+  /// Merge the account with local data before uploading and observing changes.
   Future<void> _afterAuthenticated() async {
-    // 1) Upload whatever is on this device so a fresh install's work isn't lost.
-    await pushLocal();
-    // 2) Download the account's full state (superset of the two) and merge.
+    // Merge first so signing in on an older device cannot overwrite newer edits.
     await pullAndMerge();
+    await pushLocal();
     // 3) Subscribe to future changes from other devices.
     startObserving();
   }
 
-  /// Ensures a user is signed in (signing in anonymously if needed), then pulls
   /// If the user already has a session (e.g. persisted from a previous sign-in
   /// on this device), sync immediately — without forcing an anonymous account.
   /// Otherwise does nothing; the auth screen shown by the app handles sign-in.
   Future<void> syncIfSignedIn() async {
     if (!_remote.isSignedIn) return;
     await pullAndMerge();
+    await pushLocal();
     startObserving();
   }
 
@@ -169,7 +167,8 @@ class SyncCoordinator {
         final remote = remoteTasksById[local.id];
         if (remote == null) {
           mergedTasks.add(local); // local-only
-        } else if (_isNewer(remote.createdAt, local.createdAt)) {
+        } else if (_isNewer(remote.updatedAt ?? remote.createdAt,
+            local.updatedAt ?? local.createdAt)) {
           mergedTasks.add(remote);
         } else {
           mergedTasks.add(local); // local wins ties
@@ -190,6 +189,12 @@ class SyncCoordinator {
         final remote = remoteEntries[key];
         if (remote == null) {
           mergedEntries.add(local);
+        } else if (remote.updatedAt != null || local.updatedAt != null) {
+          mergedEntries.add(remote.updatedAt != null &&
+                  (local.updatedAt == null ||
+                      remote.updatedAt!.isAfter(local.updatedAt!))
+              ? remote
+              : local);
         } else if (remote.progress > local.progress) {
           mergedEntries.add(remote);
         } else {
@@ -224,7 +229,14 @@ class SyncCoordinator {
         }
       }
 
-      // Persist the merged result locally.
+      final changed = jsonEncode(localTasks.map((t) => t.toJson()).toList()) !=
+              jsonEncode(mergedTasks.map((t) => t.toJson()).toList()) ||
+          jsonEncode(localEntries.map((e) => e.toJson()).toList()) !=
+              jsonEncode(mergedEntries.map((e) => e.toJson()).toList()) ||
+          jsonEncode(localTimers.map((t) => t.toJson()).toList()) !=
+              jsonEncode(mergedTimers.map((t) => t.toJson()).toList());
+      if (!changed) return;
+      // Persist only changed snapshots to avoid provider reload/sync loops.
       await _local.saveTasks(mergedTasks);
       await _local.saveEntries(mergedEntries);
       await _local.saveActiveTimers(mergedTimers);

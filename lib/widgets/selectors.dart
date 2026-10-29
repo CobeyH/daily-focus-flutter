@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// A small palette of colors users can pick for a task.
 const List<int> taskColors = <int>[
-  0xFF5C6BC0, // indigo
+  0xFF247866, // forest
   0xFFEF5350, // red
   0xFF66BB6A, // green
   0xFFFFA726, // orange
@@ -102,14 +102,18 @@ class IconSelector extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: selected == icon.codePoint
-                    ? const Color(0xFF5C6BC0).withValues(alpha: 0.2)
+                    ? Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.2)
                     : Colors.transparent,
                 shape: BoxShape.circle,
                 border: selected == icon.codePoint
-                    ? Border.all(color: const Color(0xFF5C6BC0), width: 2)
+                    ? Border.all(
+                        color: Theme.of(context).colorScheme.primary, width: 2)
                     : Border.all(color: Colors.grey.shade300),
               ),
-              child: Icon(icon, color: Colors.black87),
+              child: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
       ],

@@ -147,7 +147,7 @@ void main() {
     });
 
     test('Schedule describe produces human-readable text', () {
-      expect(const ScheduleDaily().describe(), 'Daily');
+      expect(const ScheduleDaily().describe(), 'Every day');
       expect(
         ScheduleInterval(
           period: SchedulePeriod.day,
@@ -162,7 +162,7 @@ void main() {
           daysOfWeek: const [DateTime.monday],
           firstDueDate: DateTime(2026, 8, 31),
         ).describe(),
-        'Every 2nd Mon',
+        'Every 2 weeks · Mon',
       );
     });
   });
@@ -270,7 +270,7 @@ void main() {
       );
     });
 
-    test('completing an overdue task credits both today and the missed date',
+    test('completing an overdue task credits only its scheduled date',
         () async {
       // Today is Tuesday 2026-09-01. Schedule is "every Monday" anchored
       // to the missed Monday (2026-08-31).
@@ -304,8 +304,8 @@ void main() {
           .increment(task, now: today);
 
       final after = container.read(appControllerProvider);
-      expect(after.progressFor(task.id, dateKey(today)) >= 1, isTrue,
-          reason: 'Today should be credited');
+      expect(after.progressFor(task.id, dateKey(today)), 0,
+          reason: 'Completion must not create a second credited day');
       expect(after.progressFor(task.id, dateKey(missedMonday)) >= 1, isTrue,
           reason: 'Missed date should be credited');
       expect(isTaskOverdueOn(task, today, after), isFalse);

@@ -107,31 +107,30 @@ class _SchedulePickerState extends State<SchedulePicker> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('How often?', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        SegmentedButton<_ScheduleMode>(
-          segments: const [
-            ButtonSegment(value: _ScheduleMode.daily, label: Text('Daily')),
-            ButtonSegment(
-                value: _ScheduleMode.interval, label: Text('Every N')),
-            ButtonSegment(value: _ScheduleMode.weekly, label: Text('Days')),
-          ],
-          selected: {_mode},
-          onSelectionChanged: (s) {
-            setState(() {
-              _mode = s.first;
-              // Reset _firstDueDate when switching to a mode that needs it,
-              // so the picker starts at "today".
-              if (_firstDueDate == null &&
-                  (_mode == _ScheduleMode.interval ||
-                      _mode == _ScheduleMode.weekly)) {
-                final now = DateTime.now();
-                _firstDueDate = DateTime(now.year, now.month, now.day);
-              }
-              _emit();
-            });
-          },
-        ),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final mode in _ScheduleMode.values)
+            ChoiceChip(
+                label: Text(switch (mode) {
+                  _ScheduleMode.daily => 'Daily',
+                  _ScheduleMode.interval => 'Interval',
+                  _ScheduleMode.weekly => 'Weekdays'
+                }),
+                selected: _mode == mode,
+                showCheckmark: false,
+                onSelected: (_) {
+                  setState(() {
+                    _mode = mode;
+                    if (_weeklyDays.isEmpty) {
+                      _weeklyDays = {DateTime.now().weekday};
+                    }
+                    if (_firstDueDate == null && mode != _ScheduleMode.daily) {
+                      final now = DateTime.now();
+                      _firstDueDate = DateTime(now.year, now.month, now.day);
+                    }
+                    _emit();
+                  });
+                }),
+        ]),
         const SizedBox(height: 16),
         if (_mode == _ScheduleMode.daily) _buildDaily(),
         if (_mode == _ScheduleMode.interval) _buildInterval(),
@@ -151,40 +150,39 @@ class _SchedulePickerState extends State<SchedulePicker> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Text('Every '),
-            _NumberStepper(
-              value: _intervalN,
-              min: 1,
-              max: 99,
-              onChanged: (v) {
-                setState(() => _intervalN = v);
+        Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text('Every'),
+              _NumberStepper(
+                  value: _intervalN,
+                  min: 1,
+                  max: 99,
+                  onChanged: (value) {
+                    setState(() => _intervalN = value);
+                    _emit();
+                  }),
+            ]),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<SchedulePeriod>(
+            initialValue: _intervalPeriod,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Repeat unit'),
+            items: [
+              for (final period in SchedulePeriod.values)
+                DropdownMenuItem(
+                    value: period,
+                    child: Text(
+                        _intervalN == 1 ? period.singularLabel : period.label))
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _intervalPeriod = value);
                 _emit();
-              },
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DropdownButtonFormField<SchedulePeriod>(
-                initialValue: _intervalPeriod,
-                items: [
-                  for (final p in SchedulePeriod.values)
-                    DropdownMenuItem(
-                      value: p,
-                      child: Text(p == SchedulePeriod.day && _intervalN == 1
-                          ? p.singularLabel
-                          : p.label),
-                    ),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() => _intervalPeriod = v);
-                  _emit();
-                },
-              ),
-            ),
-          ],
-        ),
+              }
+            }),
         if (_intervalPeriod == SchedulePeriod.week) ...[
           const SizedBox(height: 12),
           _WeekdayChips(
@@ -221,9 +219,12 @@ class _SchedulePickerState extends State<SchedulePicker> {
           label: 'On',
         ),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Text('Every '),
+            const Text('Every'),
             _NumberStepper(
               value: _weeklyN,
               min: 1,
@@ -234,7 +235,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
               },
             ),
             const SizedBox(width: 8),
-            const Text('week(s)'),
+            Text(_weeklyN == 1 ? 'week' : 'weeks'),
           ],
         ),
         if (_weeklyN > 1) ...[
@@ -285,7 +286,7 @@ class _NumberStepper extends StatelessWidget {
             icon: const Icon(Icons.remove),
           ),
           SizedBox(
-            width: 32,
+            width: 48,
             child: Text(
               '$value',
               textAlign: TextAlign.center,
@@ -369,7 +370,8 @@ class _FirstDueDateField extends StatelessWidget {
         final picked = await showDatePicker(
           context: context,
           initialDate: initial,
-          firstDate: DateTime(today.year - 2),
+          firstDate: DateTime(
+              initial.year < today.year - 2 ? initial.year : today.year - 2),
           lastDate: DateTime(today.year + 5),
         );
         if (picked != null) onChanged(picked);
@@ -378,6 +380,7 @@ class _FirstDueDateField extends StatelessWidget {
         decoration: InputDecoration(
           labelText: 'First due',
           helperText: helper,
+          helperMaxLines: 3,
           border: const OutlineInputBorder(),
           suffixIcon: const Icon(Icons.calendar_today, size: 18),
         ),

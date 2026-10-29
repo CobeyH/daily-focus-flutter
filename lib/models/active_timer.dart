@@ -30,6 +30,7 @@ class ActiveTimer {
 
   /// Wall-clock time (UTC) at which [remaining] was snapshotted.
   final DateTime updatedAt;
+  final String? occurrenceKey;
 
   const ActiveTimer({
     required this.taskId,
@@ -37,16 +38,19 @@ class ActiveTimer {
     required this.paused,
     required this.remaining,
     required this.updatedAt,
+    this.occurrenceKey,
   });
 
   /// Creates a fresh running timer for [task], counting down from its goal.
-  factory ActiveTimer.start(Task task, {required DateTime now}) {
+  factory ActiveTimer.start(Task task,
+      {required DateTime now, String? occurrenceKey}) {
     return ActiveTimer(
       taskId: task.id,
       startedAt: now,
       paused: false,
       remaining: Duration(seconds: task.goal),
       updatedAt: now,
+      occurrenceKey: occurrenceKey,
     );
   }
 
@@ -69,6 +73,7 @@ class ActiveTimer {
         paused: true,
         remaining: remainingAt(now),
         updatedAt: now,
+        occurrenceKey: occurrenceKey,
       );
 
   /// Returns a running copy that resumes from the frozen remaining time.
@@ -78,6 +83,7 @@ class ActiveTimer {
         paused: false,
         remaining: remainingAt(now),
         updatedAt: now,
+        occurrenceKey: occurrenceKey,
       );
 
   Map<String, dynamic> toJson() => {
@@ -86,6 +92,7 @@ class ActiveTimer {
         'paused': paused,
         'remainingMs': remaining.inMilliseconds,
         'updatedAt': updatedAt.toIso8601String(),
+        'occurrenceKey': occurrenceKey,
       };
 
   factory ActiveTimer.fromJson(Map<String, dynamic> json) {
@@ -107,6 +114,7 @@ class ActiveTimer {
         paused: false,
         remaining: remaining.isNegative ? Duration.zero : remaining,
         updatedAt: now,
+        occurrenceKey: json['occurrenceKey'] as String?,
       );
     }
 
@@ -116,6 +124,7 @@ class ActiveTimer {
       paused: json['paused'] as bool? ?? false,
       remaining: Duration(milliseconds: json['remainingMs'] as int? ?? 0),
       updatedAt: updatedAt,
+      occurrenceKey: json['occurrenceKey'] as String?,
     );
   }
 }

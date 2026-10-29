@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:daily_focus/models/active_timer.dart';
 import 'package:daily_focus/models/task.dart';
+import 'package:daily_focus/models/task_timing.dart';
 import 'package:daily_focus/models/task_entry.dart';
 import 'package:daily_focus/storage/firebase_storage.dart';
 import 'package:daily_focus/storage/firebase_auth_client.dart';
@@ -93,10 +94,20 @@ void main() {
         step: 1,
         color: 0xff5c6bc0,
         icon: 0xe0b0,
+        timing: const TaskTiming(
+            showDaysBefore: 1, showMinute: 540, dueMinute: 1080, graceDays: 2),
       );
-      final entry =
-          TaskEntry(taskId: task.id, dateKey: '2026-10-27', progress: 60);
-      final timer = ActiveTimer.start(task, now: DateTime.utc(2026, 10, 27));
+      final entry = TaskEntry(
+          taskId: task.id,
+          dateKey: '2026-10-27',
+          progress: 60,
+          updatedAt: DateTime.utc(2026, 10, 28),
+          completedAt: DateTime.utc(2026, 10, 28),
+          completionTiming: 'grace',
+          completedGoal: 60,
+          previousProgress: 0);
+      final timer = ActiveTimer.start(task,
+          now: DateTime.utc(2026, 10, 27), occurrenceKey: '2026-10-27');
       final update = second
           .observeChanges()
           .firstWhere((snapshot) =>

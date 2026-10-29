@@ -1,181 +1,128 @@
 import 'package:flutter/foundation.dart';
 
-/// How often a task is due.
-///
-/// Three modes are supported:
-///
-/// * [ScheduleDaily] — the task is due every day (the original behaviour).
-/// * [ScheduleInterval] — every N [SchedulePeriod]s (e.g. every 3 days,
-///   every 2 weeks, every 6 months). For week periods, [daysOfWeek] pins the
-///   due dates; for month periods, the day-of-month of [firstDueDate] is
-///   used.
-/// * [ScheduleWeekly] — every [intervalWeeks] weeks on specific weekdays
-///   ([daysOfWeek]). `intervalWeeks=2` with `daysOfWeek=[mon]` =
-///   "every other Monday".
+import '../utils/dates.dart';
+
+/// Calendar recurrence. Dates are local civil dates, never elapsed 24h periods.
 sealed class Schedule {
   const Schedule();
-
-  /// Whether the task is due on [day] under this schedule. Does not consider
-  /// overdue state — just the raw cadence.
   bool isDueOn(DateTime day);
+  DateTime? get startsOn;
+  bool get hasDays => true;
 
-  /// The next due date strictly after [from], or `null` if none can be found
-  /// within a reasonable horizon.
-  DateTime? nextDueDateAfter(DateTime from);
+  DateTime? _find(DateTime from, int direction) {
+    if (!hasDays) return null;
+    var day = dateOnly(from);
+    // Supports the editor's full range, including every 99 months.
+    for (var i = 0; i < 366 * 100; i++) {
+      if (direction < 0 &&
+          startsOn != null &&
+          day.isBefore(dateOnly(startsOn!))) {
+        return null;
+      }
+      if (isDueOn(day)) return day;
+      day = calendarDay(day, direction);
+    }
+    return null;
+  }
 
-  /// The first due date on or after [from], or `null` if none exists within a
-  /// reasonable horizon. Used when walking a schedule forward (e.g. streak
-  /// computation).
-  DateTime? firstDueDateFrom(DateTime from);
-
-  /// The most recent due date on or before [day], or `null` if none exists.
-  DateTime? lastDueDateOnOrBefore(DateTime day);
-
-  /// A short human-readable description, e.g. "Daily", "Every 3 days",
-  /// "Every Monday", "Every other Monday".
+  DateTime? nextDueDateAfter(DateTime from) => _find(calendarDay(from, 1), 1);
+  DateTime? firstDueDateFrom(DateTime from) => _find(from, 1);
+  DateTime? lastDueDateOnOrBefore(DateTime day) => _find(day, -1);
   String describe();
-
   Map<String, dynamic> toJson();
 
   static Schedule fromJson(Map<String, dynamic> json) {
-    final kind = json['kind'] as String? ?? 'daily';
-    switch (kind) {
+    final first = DateTime.tryParse(json['firstDueDate'] as String? ?? '');
+    final days = (json['daysOfWeek'] as List?)
+            ?.cast<num>()
+            .map((n) => n.toInt())
+            .where((n) => n >= 1 && n <= 7)
+            .toSet()
+            .toList() ??
+        <int>[];
+    switch (json['kind']) {
       case 'interval':
         return ScheduleInterval(
-          period: SchedulePeriodX.fromValue(json['period'] as String? ?? 'day'),
-          interval: (json['interval'] as int?) ?? 1,
-          firstDueDate: DateTime.parse(json['firstDueDate'] as String),
-          daysOfWeek: _readDaysOfWeek(json['daysOfWeek']),
-        );
+            period:
+                SchedulePeriodX.fromValue(json['period'] as String? ?? 'day'),
+            interval: ((json['interval'] as num?)?.toInt() ?? 1).clamp(1, 99),
+            firstDueDate: first ?? DateTime(1970),
+            daysOfWeek: days);
       case 'weekly':
         return ScheduleWeekly(
-          intervalWeeks: (json['intervalWeeks'] as int?) ?? 1,
-          daysOfWeek: _readDaysOfWeek(json['daysOfWeek']) ?? const <int>[],
-          firstDueDate: json['firstDueDate'] != null
-              ? DateTime.parse(json['firstDueDate'] as String)
-              : null,
-        );
-      case 'daily':
+            intervalWeeks:
+                ((json['intervalWeeks'] as num?)?.toInt() ?? 1).clamp(1, 99),
+            daysOfWeek: days,
+            firstDueDate: first);
       default:
         return const ScheduleDaily();
     }
   }
-
-  static List<int>? _readDaysOfWeek(dynamic v) {
-    if (v == null) return null;
-    final list = (v as List<dynamic>).cast<num>();
-    return list.map((n) => n.toInt()).toList(growable: false);
-  }
 }
 
-/// Due every day.
 class ScheduleDaily extends Schedule {
   const ScheduleDaily();
-
+  @override
+  DateTime? get startsOn => null;
   @override
   bool isDueOn(DateTime day) => true;
-
   @override
-  DateTime? nextDueDateAfter(DateTime from) =>
-      DateTime(from.year, from.month, from.day).add(const Duration(days: 1));
-
-  @override
-  DateTime? firstDueDateFrom(DateTime from) =>
-      DateTime(from.year, from.month, from.day);
-
-  @override
-  DateTime? lastDueDateOnOrBefore(DateTime day) =>
-      DateTime(day.year, day.month, day.day);
-
-  @override
-  String describe() => 'Daily';
-
+  String describe() => 'Every day';
   @override
   Map<String, dynamic> toJson() => {'kind': 'daily'};
 }
 
-/// Every [interval] [period]s. For week periods, [daysOfWeek] is required and
-/// pins the due dates. For month periods, the day-of-month of
-/// [firstDueDate] is used.
 @immutable
 class ScheduleInterval extends Schedule {
   final SchedulePeriod period;
   final int interval;
   final DateTime firstDueDate;
   final List<int>? daysOfWeek;
-
-  const ScheduleInterval({
-    required this.period,
-    required this.interval,
-    required this.firstDueDate,
-    this.daysOfWeek,
-  });
-
+  const ScheduleInterval(
+      {required this.period,
+      required this.interval,
+      required this.firstDueDate,
+      this.daysOfWeek})
+      : assert(interval > 0);
+  @override
+  DateTime get startsOn => firstDueDate;
   @override
   bool isDueOn(DateTime day) {
-    final first =
-        DateTime(firstDueDate.year, firstDueDate.month, firstDueDate.day);
-    final cur = DateTime(day.year, day.month, day.day);
-    if (cur.isBefore(first)) return false;
-
+    if (dateOnly(day).isBefore(dateOnly(firstDueDate))) return false;
     switch (period) {
       case SchedulePeriod.day:
-        final diffDays = cur.difference(first).inDays;
-        return diffDays % interval == 0;
+        return calendarDaysBetween(firstDueDate, day) % interval == 0;
       case SchedulePeriod.week:
-        if (daysOfWeek != null && daysOfWeek!.isNotEmpty) {
-          if (!daysOfWeek!.contains(day.weekday)) return false;
-        }
-        final daysBetween = cur.difference(first).inDays;
-        final weeksBetween = daysBetween ~/ 7;
-        return weeksBetween % interval == 0 && daysBetween % 7 == 0;
+        return _weeklyDue(
+            day,
+            firstDueDate,
+            interval,
+            daysOfWeek?.isNotEmpty == true
+                ? daysOfWeek!
+                : [firstDueDate.weekday]);
       case SchedulePeriod.month:
-        final monthsBetween =
-            (cur.year - first.year) * 12 + (cur.month - first.month);
-        return monthsBetween % interval == 0 && cur.day == first.day;
+        final months = (day.year - firstDueDate.year) * 12 +
+            day.month -
+            firstDueDate.month;
+        final lastDay = DateTime(day.year, day.month + 1, 0).day;
+        return months % interval == 0 &&
+            day.day == firstDueDate.day.clamp(1, lastDay);
     }
-  }
-
-  @override
-  DateTime? nextDueDateAfter(DateTime from) {
-    var candidate =
-        DateTime(from.year, from.month, from.day).add(const Duration(days: 1));
-    for (var i = 0; i < 366 * 5; i++) {
-      if (isDueOn(candidate)) return candidate;
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    return null;
-  }
-
-  @override
-  DateTime? firstDueDateFrom(DateTime from) {
-    var candidate = DateTime(from.year, from.month, from.day);
-    for (var i = 0; i < 366; i++) {
-      if (isDueOn(candidate)) return candidate;
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    return null;
-  }
-
-  @override
-  DateTime? lastDueDateOnOrBefore(DateTime day) {
-    var candidate = DateTime(day.year, day.month, day.day);
-    for (var i = 0; i < 366 * 5; i++) {
-      if (isDueOn(candidate)) return candidate;
-      candidate = candidate.subtract(const Duration(days: 1));
-      if (candidate.year < 1900) return null;
-    }
-    return null;
   }
 
   @override
   String describe() {
+    if (period == SchedulePeriod.week) {
+      return _weeklyDescription(
+          interval,
+          daysOfWeek?.isNotEmpty == true
+              ? daysOfWeek!
+              : [firstDueDate.weekday]);
+    }
     if (interval == 1) {
-      return switch (period) {
-        SchedulePeriod.day => 'Daily',
-        SchedulePeriod.week => 'Weekly',
-        SchedulePeriod.month => 'Monthly',
-      };
+      return period == SchedulePeriod.day
+          ? 'Every day'
+          : 'Monthly on ${firstDueDate.day}';
     }
     return 'Every $interval ${period.label}';
   }
@@ -186,141 +133,73 @@ class ScheduleInterval extends Schedule {
         'period': period.name,
         'interval': interval,
         'firstDueDate': firstDueDate.toIso8601String(),
-        if (daysOfWeek != null) 'daysOfWeek': daysOfWeek,
+        if (daysOfWeek != null) 'daysOfWeek': daysOfWeek
       };
 }
 
-/// Every [intervalWeeks] weeks on the specified [daysOfWeek]. Anchored by
-/// [firstDueDate] when provided, so "every other Monday" stays anchored to
-/// its first Monday rather than sliding.
 @immutable
 class ScheduleWeekly extends Schedule {
   final int intervalWeeks;
   final List<int> daysOfWeek;
   final DateTime? firstDueDate;
-
-  const ScheduleWeekly({
-    required this.intervalWeeks,
-    required this.daysOfWeek,
-    this.firstDueDate,
-  });
-
+  const ScheduleWeekly(
+      {required this.intervalWeeks,
+      required this.daysOfWeek,
+      this.firstDueDate})
+      : assert(intervalWeeks > 0);
   @override
-  bool isDueOn(DateTime day) {
-    if (!daysOfWeek.contains(day.weekday)) return false;
-    if (firstDueDate == null) return true;
-    final first =
-        DateTime(firstDueDate!.year, firstDueDate!.month, firstDueDate!.day);
-    if (DateTime(day.year, day.month, day.day).isBefore(first)) return false;
-    final daysBetween =
-        DateTime(day.year, day.month, day.day).difference(first).inDays;
-    final weeksBetween = daysBetween ~/ 7;
-    return weeksBetween % intervalWeeks == 0;
-  }
-
+  DateTime? get startsOn => firstDueDate;
   @override
-  DateTime? nextDueDateAfter(DateTime from) {
-    var candidate =
-        DateTime(from.year, from.month, from.day).add(const Duration(days: 1));
-    for (var i = 0; i < 14; i++) {
-      if (isDueOn(candidate)) return candidate;
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    return null;
-  }
-
+  bool get hasDays => daysOfWeek.isNotEmpty;
   @override
-  DateTime? firstDueDateFrom(DateTime from) {
-    var candidate = DateTime(from.year, from.month, from.day);
-    for (var i = 0; i < 14; i++) {
-      if (isDueOn(candidate)) return candidate;
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    return null;
-  }
-
+  bool isDueOn(DateTime day) => _weeklyDue(
+      day, firstDueDate ?? DateTime(1970, 1, 5), intervalWeeks, daysOfWeek);
   @override
-  DateTime? lastDueDateOnOrBefore(DateTime day) {
-    var candidate = DateTime(day.year, day.month, day.day);
-    for (var i = 0; i < 14; i++) {
-      if (isDueOn(candidate)) return candidate;
-      candidate = candidate.subtract(const Duration(days: 1));
-      if (candidate.year < 1900) return null;
-    }
-    return null;
-  }
-
-  @override
-  String describe() {
-    if (daysOfWeek.isEmpty) return 'No days selected';
-    final days =
-        daysOfWeek.map((d) => kWeekDayLabels[d - DateTime.monday]).join(', ');
-    if (intervalWeeks == 1) return 'Every $days';
-    return 'Every ${_ordinal(intervalWeeks)} $days';
-  }
-
+  String describe() => _weeklyDescription(intervalWeeks, daysOfWeek);
   @override
   Map<String, dynamic> toJson() => {
         'kind': 'weekly',
         'intervalWeeks': intervalWeeks,
         'daysOfWeek': daysOfWeek,
         if (firstDueDate != null)
-          'firstDueDate': firstDueDate!.toIso8601String(),
+          'firstDueDate': firstDueDate!.toIso8601String()
       };
-
-  static String _ordinal(int n) {
-    if (n >= 11 && n <= 13) return '${n}th';
-    return switch (n % 10) {
-      1 => '${n}st',
-      2 => '${n}nd',
-      3 => '${n}rd',
-      _ => '${n}th',
-    };
-  }
 }
 
-/// The unit used by [ScheduleInterval].
+bool _weeklyDue(DateTime day, DateTime first, int interval, List<int> days) {
+  if (dateOnly(day).isBefore(dateOnly(first)) || !days.contains(day.weekday)) {
+    return false;
+  }
+  final anchorMonday = calendarDay(first, 1 - first.weekday);
+  return (calendarDaysBetween(anchorMonday, day) ~/ 7) % interval == 0;
+}
+
+String _weeklyDescription(int interval, List<int> days) {
+  if (days.isEmpty) return 'Choose weekdays';
+  final sorted = days.toSet().toList()..sort();
+  final label = sorted.length == 7
+      ? 'every day'
+      : sorted.map((d) => kWeekDayLabels[d - 1]).join(', ');
+  return interval == 1
+      ? (sorted.length == 7 ? 'Every day' : 'Every $label')
+      : 'Every $interval weeks · $label';
+}
+
 enum SchedulePeriod { day, week, month }
 
 extension SchedulePeriodX on SchedulePeriod {
   String get label => switch (this) {
         SchedulePeriod.day => 'days',
         SchedulePeriod.week => 'weeks',
-        SchedulePeriod.month => 'months',
+        SchedulePeriod.month => 'months'
       };
-
-  String get singularLabel => switch (this) {
-        SchedulePeriod.day => 'day',
-        SchedulePeriod.week => 'week',
-        SchedulePeriod.month => 'month',
-      };
-
-  static SchedulePeriod fromValue(String v) => switch (v) {
+  String get singularLabel => name;
+  static SchedulePeriod fromValue(String value) => switch (value) {
         'week' => SchedulePeriod.week,
         'month' => SchedulePeriod.month,
-        _ => SchedulePeriod.day,
+        _ => SchedulePeriod.day
       };
 }
 
-/// Names for weekdays matching [DateTime.weekday] (1=Mon..7=Sun). Used for the
-/// schedule picker's UI.
-const List<int> kWeekDays = <int>[
-  DateTime.monday,
-  DateTime.tuesday,
-  DateTime.wednesday,
-  DateTime.thursday,
-  DateTime.friday,
-  DateTime.saturday,
-  DateTime.sunday,
-];
-
-/// Short weekday labels in the same order as [kWeekDays].
-const List<String> kWeekDayLabels = <String>[
-  'Mon',
-  'Tue',
-  'Wed',
-  'Thu',
-  'Fri',
-  'Sat',
-  'Sun',
-];
+const kWeekDays = [1, 2, 3, 4, 5, 6, 7];
+const kWeekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

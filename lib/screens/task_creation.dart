@@ -1,311 +1,300 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../models/schedule.dart';
 import '../models/task.dart';
+import '../models/task_timing.dart';
 import '../providers/app_controller.dart';
+import '../providers/clock_provider.dart';
+import '../utils/dates.dart';
 import '../widgets/schedule_picker.dart';
 import '../widgets/selectors.dart';
+import '../widgets/task_timing_picker.dart';
 
-/// Screen for creating a new task or editing an existing one.
 class TaskCreationScreen extends ConsumerStatefulWidget {
   final Task? existing;
-
   const TaskCreationScreen({super.key, this.existing});
-
   @override
   ConsumerState<TaskCreationScreen> createState() => _TaskCreationScreenState();
 }
 
 class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
-  late final TextEditingController _nameController;
+  final _form = GlobalKey<FormState>();
+  late TextEditingController _name, _count, _hours, _minutes, _seconds;
   late TaskType _type;
-  late int _goal;
-  late int _step;
-  late int _color;
-  late int _icon;
-  late bool _isEdit;
   late Schedule _schedule;
-
-  // Time-based goal, split into h/m/s for easier entry.
-  late int _goalHours;
-  late int _goalMinutes;
-  late int _goalSeconds;
-
+  late TaskTiming _timing;
+  late int _color, _icon;
+  bool _saving = false;
+  String? _error;
   @override
   void initState() {
     super.initState();
-    final t = widget.existing;
-    _isEdit = t != null;
-    _nameController = TextEditingController(text: t?.name ?? '');
-    _type = t?.type ?? TaskType.count;
-    _goal = t?.goal ?? 1;
-    _step = t?.step ?? 1;
-    _color = t?.color ?? taskColors.first;
-    _icon = t?.icon ?? taskIcons.first.codePoint;
-    _schedule = t?.schedule ?? const ScheduleDaily();
-
-    // Split the goal into h/m/s. For count tasks the goal is occurrences and
-    // this decomposition is unused; for minutes tasks it's stored in seconds.
-    if (_type == TaskType.minutes) {
-      final d = Duration(seconds: _goal);
-      _goalHours = d.inHours;
-      _goalMinutes = d.inMinutes.remainder(60);
-      _goalSeconds = d.inSeconds.remainder(60);
-    } else {
-      _goalHours = 0;
-      _goalMinutes = 0;
-      _goalSeconds = 0;
-    }
+    final task = widget.existing;
+    _name = TextEditingController(text: task?.name ?? '');
+    _type = task?.type ?? TaskType.count;
+    final duration =
+        Duration(seconds: _type == TaskType.minutes ? task!.goal : 600);
+    _count = TextEditingController(
+        text: '${_type == TaskType.count ? task?.goal ?? 1 : 1}');
+    _hours = TextEditingController(text: '${duration.inHours}');
+    _minutes =
+        TextEditingController(text: '${duration.inMinutes.remainder(60)}');
+    _seconds =
+        TextEditingController(text: '${duration.inSeconds.remainder(60)}');
+    _schedule = task?.schedule ?? const ScheduleDaily();
+    _timing = task?.timing ?? const TaskTiming();
+    _color = task?.color ?? taskColors.first;
+    _icon = task?.icon ?? taskIcons.first.codePoint;
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
+    for (final controller in [_name, _count, _hours, _minutes, _seconds]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _save() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please give your task a name.')),
-      );
+    if (!_form.currentState!.validate() || _saving) return;
+    final goal = _type == TaskType.count
+        ? int.tryParse(_count.text) ?? 0
+        : (int.tryParse(_hours.text) ?? 0) * 3600 +
+            (int.tryParse(_minutes.text) ?? 0) * 60 +
+            (int.tryParse(_seconds.text) ?? 0);
+    String? error;
+    if (goal <= 0) error = 'Choose a goal greater than zero.';
+    if (_schedule is ScheduleWeekly &&
+        (_schedule as ScheduleWeekly).daysOfWeek.isEmpty) {
+      error = 'Choose at least one weekday.';
+    }
+    if (!_timing.isValid) error = 'The task must appear before its due time.';
+    if (error != null) {
+      setState(() => _error = error);
       return;
     }
-    // For time-based tasks, the goal is the total duration in seconds.
-    final goal = _type == TaskType.minutes
-        ? _goalHours * 3600 + _goalMinutes * 60 + _goalSeconds
-        : _goal;
-    if (_type == TaskType.minutes && goal <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please set a goal longer than zero.')),
-      );
-      return;
-    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     final controller = ref.read(appControllerProvider.notifier);
-    if (_isEdit) {
-      await controller.updateTask(widget.existing!.copyWith(
-        name: name,
-        type: _type,
-        goal: goal,
-        step: _step,
-        color: _color,
-        icon: _icon,
-        schedule: _schedule,
-      ));
-    } else {
-      await controller.addTask(Task.create(
-        name: name,
-        type: _type,
-        goal: goal,
-        step: _step,
-        color: _color,
-        icon: _icon,
-        schedule: _schedule,
-      ));
+    final existing = widget.existing;
+    final task = existing?.copyWith(
+            name: _name.text.trim(),
+            type: _type,
+            goal: goal,
+            step: 1,
+            color: _color,
+            icon: _icon,
+            schedule: _schedule,
+            timing: _timing) ??
+        Task.create(
+            name: _name.text.trim(),
+            type: _type,
+            goal: goal,
+            step: 1,
+            color: _color,
+            icon: _icon,
+            schedule: _schedule,
+            timing: _timing);
+    try {
+      if (existing == null) {
+        await controller.addTask(task);
+      } else {
+        await controller.updateTask(task);
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Could not save this task. Please try again.';
+        });
+      }
     }
-    if (mounted) Navigator.of(context).pop();
   }
 
+  Widget _section(String title, String subtitle, Widget child) => Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Card(
+          child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
+                    const SizedBox(height: 20),
+                    child,
+                  ]))));
+  Widget _number(TextEditingController controller, String label, {int? max}) =>
+      TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(5)
+          ],
+          decoration: InputDecoration(labelText: label),
+          validator: (text) {
+            final value = int.tryParse(text ?? '');
+            return value == null || (max != null && value > max)
+                ? 'Use 0–${max ?? 99999}'
+                : null;
+          });
   @override
   Widget build(BuildContext context) {
+    final now = ref.watch(clockProvider);
+    final next = <DateTime>[];
+    var day = _schedule.firstDueDateFrom(dateOnly(now));
+    for (var i = 0; i < 3 && day != null; i++) {
+      next.add(day);
+      day = _schedule.nextDueDateAfter(day);
+    }
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEdit ? 'Edit Task' : 'New Task'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('Save', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _nameController,
-            autofocus: !_isEdit,
-            decoration: const InputDecoration(
-              labelText: 'Task name',
-              hintText: 'e.g. Drink water',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text('Goal type',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          SegmentedButton<TaskType>(
-            segments: const [
-              ButtonSegment(value: TaskType.count, label: Text('Times')),
-              ButtonSegment(value: TaskType.minutes, label: Text('Minutes')),
-            ],
-            selected: {_type},
-            onSelectionChanged: (s) => setState(() => _type = s.first),
-          ),
-          const SizedBox(height: 24),
-          Text('Daily goal',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          if (_type == TaskType.minutes)
-            _DurationSelector(
-              hours: _goalHours,
-              minutes: _goalMinutes,
-              seconds: _goalSeconds,
-              onChanged: (h, m, s) => setState(() {
-                _goalHours = h;
-                _goalMinutes = m;
-                _goalSeconds = s;
-              }),
-            )
-          else
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => setState(() {
-                    if (_goal > 1) _goal--;
-                  }),
-                  icon: const Icon(Icons.remove_circle_outline),
-                ),
-                Expanded(
-                  child: Text(
-                    '$_goal ${_type.label}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 22),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => setState(() => _goal++),
-                  icon: const Icon(Icons.add_circle_outline),
-                ),
-              ],
-            ),
-          if (_type == TaskType.minutes)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'When you start this task, a timer counts down '
-                '${_goalHours}h ${_goalMinutes}m ${_goalSeconds}s. '
-                'Even if the app is closed, you\'ll get a notification when it\'s '
-                'done.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-            ),
-          const SizedBox(height: 24),
-          SchedulePicker(
-            initial: _schedule,
-            onChanged: (s) => _schedule = s,
-          ),
-          const SizedBox(height: 24),
-          const Text('Color', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ColorSelector(
-              selected: _color, onChanged: (c) => setState(() => _color = c)),
-          const SizedBox(height: 24),
-          const Text('Icon', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          IconSelector(
-              selected: _icon, onChanged: (i) => setState(() => _icon = i)),
-          const SizedBox(height: 32),
-        ],
-      ),
-    );
-  }
-}
-
-/// A three-column selector for entering a duration with hour / minute /
-/// second granularity. Each column shows the value with +/- buttons and a
-/// slider for quick adjustment.
-class _DurationSelector extends StatelessWidget {
-  final int hours;
-  final int minutes;
-  final int seconds;
-  final void Function(int hours, int minutes, int seconds) onChanged;
-
-  const _DurationSelector({
-    required this.hours,
-    required this.minutes,
-    required this.seconds,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final fields = [
-      ('h', hours, 24, 0),
-      ('m', minutes, 59, 5),
-      ('s', seconds, 59, 5),
-    ];
-    return Row(
-      children: [
-        for (final (label, value, max, step) in fields)
-          Expanded(
-            child: _TimeField(
-              label: label,
-              value: value,
-              max: max,
-              step: step,
-              onChanged: (v) {
-                switch (label) {
-                  case 'h':
-                    onChanged(v, minutes, seconds);
-                    break;
-                  case 'm':
-                    onChanged(hours, v, seconds);
-                    break;
-                  default:
-                    onChanged(hours, minutes, v);
-                }
-              },
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TimeField extends StatelessWidget {
-  final String label;
-  final int value;
-  final int max;
-  final int step;
-  final void Function(int) onChanged;
-
-  const _TimeField({
-    required this.label,
-    required this.value,
-    required this.max,
-    required this.step,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        IconButton(
-          onPressed: () => onChanged((value + step).clamp(0, max)),
-          icon: const Icon(Icons.keyboard_arrow_up),
-        ),
-        Text(
-          '$value',
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-        ),
-        IconButton(
-          onPressed: () => onChanged((value - step).clamp(0, max)),
-          icon: const Icon(Icons.keyboard_arrow_down),
-        ),
-        Text(label,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-        Slider(
-          value: value.toDouble().clamp(0, max.toDouble()),
-          min: 0,
-          max: max.toDouble(),
-          divisions: max,
-          onChanged: (v) => onChanged(v.round()),
-        ),
-      ],
-    );
+        appBar: AppBar(
+            title: Text(widget.existing == null ? 'New task' : 'Edit task'),
+            actions: [
+              TextButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving ? 'Saving…' : 'Save')),
+              const SizedBox(width: 8)
+            ]),
+        body: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Form(
+                    key: _form,
+                    child: ListView(
+                        key: const ValueKey('task-editor-scroll'),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                        children: [
+                          _section(
+                              'Make it yours',
+                              'A small action you want to make room for.',
+                              Column(children: [
+                                TextFormField(
+                                    controller: _name,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
+                                    decoration: const InputDecoration(
+                                        labelText: 'Task name',
+                                        hintText: 'e.g. Weekly review'),
+                                    validator: (value) =>
+                                        value == null || value.trim().isEmpty
+                                            ? 'Give your task a name.'
+                                            : null),
+                                const SizedBox(height: 16),
+                                Wrap(spacing: 8, runSpacing: 8, children: [
+                                  for (final type in TaskType.values)
+                                    ChoiceChip(
+                                        avatar: Icon(
+                                            type == TaskType.count
+                                                ? Icons.check_rounded
+                                                : Icons.timer_outlined,
+                                            size: 18),
+                                        label: Text(type == TaskType.count
+                                            ? 'Count'
+                                            : 'Timer'),
+                                        selected: _type == type,
+                                        showCheckmark: false,
+                                        onSelected: (_) =>
+                                            setState(() => _type = type)),
+                                ]),
+                                const SizedBox(height: 16),
+                                if (_type == TaskType.count)
+                                  _number(_count, 'Times per occurrence')
+                                else
+                                  Row(children: [
+                                    Expanded(
+                                        child:
+                                            _number(_hours, 'Hours', max: 99)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                        child: _number(_minutes, 'Minutes',
+                                            max: 59)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                        child: _number(_seconds, 'Seconds',
+                                            max: 59))
+                                  ]),
+                              ])),
+                          _section(
+                              'Repeat',
+                              'Choose the days this task is due.',
+                              Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SchedulePicker(
+                                        initial: _schedule,
+                                        onChanged: (value) =>
+                                            setState(() => _schedule = value)),
+                                    const SizedBox(height: 16),
+                                    Text('Next due dates',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge),
+                                    const SizedBox(height: 8),
+                                    Wrap(spacing: 8, runSpacing: 6, children: [
+                                      for (final date in next)
+                                        Chip(
+                                            label: Text(
+                                                '${kWeekDayLabels[date.weekday - 1]} ${shortDate(date)}'))
+                                    ]),
+                                    if (_schedule is ScheduleInterval &&
+                                        (_schedule as ScheduleInterval)
+                                                .period ==
+                                            SchedulePeriod.month)
+                                      const Text(
+                                          'Shorter months use their last day.',
+                                          style: TextStyle(fontSize: 12)),
+                                  ])),
+                          _section(
+                              'Timing & flexibility',
+                              'Visibility and deadlines work independently.',
+                              TaskTimingPicker(
+                                  value: _timing,
+                                  onChanged: (value) =>
+                                      setState(() => _timing = value))),
+                          _section(
+                              'Personalize',
+                              'A familiar color and icon make it easier to spot.',
+                              Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ColorSelector(
+                                        selected: _color,
+                                        onChanged: (value) =>
+                                            setState(() => _color = value)),
+                                    const SizedBox(height: 20),
+                                    IconSelector(
+                                        selected: _icon,
+                                        onChanged: (value) =>
+                                            setState(() => _icon = value)),
+                                  ])),
+                          if (_error != null)
+                            Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Text(_error!,
+                                    style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .error))),
+                          FilledButton.icon(
+                              onPressed: _saving ? null : _save,
+                              icon: const Icon(Icons.check),
+                              label: Text(_saving
+                                  ? 'Saving…'
+                                  : widget.existing == null
+                                      ? 'Create task'
+                                      : 'Save changes')),
+                        ])))));
   }
 }

@@ -168,7 +168,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.local_fire_department,
+                    Icon(Icons.spa_outlined,
                         size: 64, color: theme.colorScheme.primary),
                     const SizedBox(height: 12),
                     Text(
