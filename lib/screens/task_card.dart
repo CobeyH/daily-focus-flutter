@@ -6,6 +6,7 @@ import '../providers/app_controller.dart';
 import '../providers/timer_controller.dart';
 import '../utils/duration_format.dart';
 import '../widgets/selectors.dart';
+import '../widgets/task_progress_ring.dart';
 import 'task_creation.dart';
 
 class TaskCard extends ConsumerWidget {
@@ -79,25 +80,13 @@ class TaskCard extends ConsumerWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Semantics(
-                    label:
-                        '${task.name}, ${(fraction * 100).round()} percent complete',
-                    child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Stack(alignment: Alignment.center, children: [
-                          CircularProgressIndicator(
-                              value: fraction,
-                              strokeWidth: 3,
-                              color: color,
-                              backgroundColor: color.withValues(alpha: 0.12)),
-                          Icon(
-                              current.done
-                                  ? Icons.check_rounded
-                                  : iconFor(task.icon),
-                              color: color,
-                              size: 23),
-                        ]))),
+                TaskProgressRing(
+                    progress: fraction,
+                    color: color,
+                    label: task.name,
+                    icon: current.done
+                        ? Icons.check_rounded
+                        : iconFor(task.icon)),
                 const SizedBox(width: 14),
                 Expanded(
                     child: Column(

@@ -61,6 +61,52 @@ Future<SharedPreferences> _pump(WidgetTester tester, List<Task> tasks,
 }
 
 void main() {
+  testWidgets('chosen library icon survives saving and reopening the editor',
+      (tester) async {
+    final prefs = await _pump(tester, [_task()]);
+    await tester.tap(find.byTooltip('Task options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit task'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('choose-task-icon')), 250,
+        scrollable: find
+            .descendant(
+                of: find.byKey(const ValueKey('task-editor-scroll')),
+                matching: find.byType(Scrollable))
+            .first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('choose-task-icon')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('choose-task-icon')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const ValueKey('icon-search')), 'laundry');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laundry'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(AppStorage(prefs).loadTasks().single.icon,
+        Icons.local_laundry_service.codePoint);
+    expect(find.byIcon(Icons.local_laundry_service), findsOneWidget);
+    await tester.tap(find.byTooltip('Task options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit task'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('choose-task-icon')), 250,
+        scrollable: find
+            .descendant(
+                of: find.byKey(const ValueKey('task-editor-scroll')),
+                matching: find.byType(Scrollable))
+            .first);
+    expect(find.text('Laundry'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('task editor fits larger text on a small phone', (tester) async {
     await _pump(tester, [_task()],
         width: 320, scale: 1.5, home: TaskCreationScreen(existing: _task()));
