@@ -71,8 +71,8 @@ made after this update. Missed days do not change resources or trees.
 A newly completed task bursts into small water droplets as it fades and shrinks
 out of the list. The droplets gather into the forest button, which pulses on
 arrival. Partial progress and skips
-do not trigger the effect. Re-completing an undone occurrence removes the card
-without another reward drop. Device reduced-motion settings disable the effect.
+do not trigger the effect. Re-completing an undone occurrence replays the burst
+without earning additional resources. Device reduced-motion settings disable the effect.
 
 Pine costs 3 seeds. Birch unlocks at 5 rewarded completions and costs 4 seeds;
 Oak unlocks at 12 and costs 5 seeds. Each tree grows from seedling to young to

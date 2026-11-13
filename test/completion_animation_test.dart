@@ -109,8 +109,7 @@ Future<({int pieces, Rect bounds, Offset center})> _rasterDroplets(
 }
 
 void main() {
-  testWidgets(
-      'card bursts into droplets, converges on the forest, and undo cannot award again',
+  testWidgets('card bursts again after undo without awarding resources again',
       (tester) async {
     final container = await _pump(tester, _task());
     final cardBounds = tester.getRect(find.byType(TaskCard));
@@ -150,11 +149,31 @@ void main() {
     await tester.tap(find.text('Complete'));
     await tester.pump();
     expect(find.byType(TaskCompletionExit), findsOneWidget);
-    expect(find.byType(CompletionWaterFlight), findsNothing);
+    expect(find.byType(CompletionWaterFlight), findsOneWidget);
     expect(container.read(forestProvider).water, 1);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+  testWidgets('rapid undo and re-completion can overlap bursts safely',
+      (tester) async {
+    final task = _task();
+    final container = await _pump(tester, task);
+    await tester.tap(find.text('Complete'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    await container
+        .read(appControllerProvider.notifier)
+        .undoCompletion(task, occurrenceKey: '2026-11-13');
+    await tester.pump();
+    await tester.tap(find.text('Complete'));
+    await tester.pump();
+    expect(find.byType(CompletionWaterFlight), findsNWidgets(2));
+    expect(container.read(forestProvider).water, 1);
+    await tester.pumpAndSettle();
+    expect(find.byType(CompletionWaterFlight), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'partial multi-step progress and skips do not play reward effects',
       (tester) async {

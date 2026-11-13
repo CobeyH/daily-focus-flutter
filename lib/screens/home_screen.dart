@@ -65,11 +65,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final end = _bounds(_forestAnchor)?.center;
     final screen = Offset.zero & MediaQuery.sizeOf(context);
     if (start == null || !screen.contains(start)) {
-      if (event.earnedWater) _forestPulse.forward(from: 0);
+      _forestPulse.forward(from: 0);
       return;
     }
     setState(() => _departing[event.key] = event);
-    if (!event.earnedWater || end == null) return;
+    if (end == null) return;
     final overlay = Overlay.of(context);
     final box = overlay.context.findRenderObject() as RenderBox;
     late final OverlayEntry flight;
