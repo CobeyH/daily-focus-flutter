@@ -7,4 +7,6 @@ class FirebaseConfig {
   static const authDomain = 'daily-focus-cobey.firebaseapp.com';
   static const appId = '1:653469827698:web:b05c50a0babe4f2e0cb8eb';
   static const googleSignInUrl = 'https://$authDomain/sign-in/';
+  static const googleServerClientId =
+      '653469827698-ldbspu7tm1pj3ev0i51ci3lqssdt1nl4.apps.googleusercontent.com';
 }

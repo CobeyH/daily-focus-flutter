@@ -45,7 +45,15 @@ Firebase's Flutter plugins do not support Linux. This app uses the pure Dart
 remain available. Sessions are stored using `flutter_secure_storage` (Linux
 Secret Service or Android encrypted storage), separate from local task data.
 
-Google sign-in opens `https://daily-focus-cobey.firebaseapp.com/sign-in/` in the
+On Android, Google sign-in uses the native Google account picker via
+`google_sign_in`. The Firebase Android app is registered as
+`com.dailyfocus.daily_focus`, with this workstation's debug signing SHA-1.
+The public web OAuth client ID is passed as `serverClientId` from
+`FirebaseConfig`; no Google Services Gradle plugin is needed. Other signing keys
+(including Play App Signing) must have their SHA-1 registered in Firebase before
+those builds can use Google sign-in. Canceling the picker leaves the login screen.
+
+On Linux, Google sign-in opens `https://daily-focus-cobey.firebaseapp.com/sign-in/` in the
 system browser. That page uses Firebase's official JavaScript SDK and returns a
 short-lived Google credential to a listener bound only to `127.0.0.1` on a random
 port. The callback checks the request origin and a random state; the hosted page

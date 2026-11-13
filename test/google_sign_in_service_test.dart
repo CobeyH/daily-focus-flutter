@@ -3,10 +3,40 @@ import 'dart:io';
 
 import 'package:daily_focus/services/google_sign_in_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 void main() {
+  test('Android uses the native picker without opening a browser', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    var calls = 0;
+    final service = GoogleSignInService(
+      nativeSignIn: () async {
+        calls++;
+        return 'native-google-token';
+      },
+      launch: (_) async => throw StateError('Browser must not open on Android'),
+    );
+    expect(await service.signIn(), 'native-google-token');
+    expect(calls, 1);
+  });
+
+  test('canceling the native picker never falls back to a browser', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final service = GoogleSignInService(
+      nativeSignIn: () async => throw const GoogleSignInException(
+          code: GoogleSignInExceptionCode.canceled),
+      launch: (_) async => throw StateError('Browser must not open'),
+    );
+    await expectLater(service.signIn(), throwsA(isA<GoogleSignInException>()));
+  });
+
   test('loopback callback rejects a wrong state before accepting a token',
       () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final client = HttpClient();
     Future<void>? browserWork;
     Future<void> completeInBrowser(Uri url) async {

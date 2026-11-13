@@ -3,19 +3,47 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/firebase_config.dart';
 
-/// Uses Firebase's browser SDK for Google sign-in on Android and Linux.
+/// Uses Google's native account picker on Android and browser sign-in on Linux.
 /// The browser returns a short-lived Google ID token to a loopback listener;
 /// the app exchanges it with Firebase. No client secret is shipped in the app.
 class GoogleSignInService {
   final Future<bool> Function(Uri)? launch;
+  final Future<String> Function()? nativeSignIn;
+  static Future<void>? _nativeInitialization;
 
-  const GoogleSignInService({this.launch});
+  const GoogleSignInService({this.launch, this.nativeSignIn});
 
   Future<String> signIn() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return (nativeSignIn ?? _signInOnAndroid)();
+    }
+    return _signInInBrowser();
+  }
+
+  static Future<String> _signInOnAndroid() async {
+    try {
+      await (_nativeInitialization ??= GoogleSignIn.instance
+          .initialize(serverClientId: FirebaseConfig.googleServerClientId));
+    } catch (_) {
+      _nativeInitialization = null;
+      rethrow;
+    }
+    final account = await GoogleSignIn.instance.authenticate();
+    final token = account.authentication.idToken;
+    if (token == null || token.isEmpty) {
+      throw StateError(
+          'Google did not return a sign-in token. Please try again.');
+    }
+    return token;
+  }
+
+  Future<String> _signInInBrowser() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final state = base64UrlEncode(
       List.generate(32, (_) => Random.secure().nextInt(256)),

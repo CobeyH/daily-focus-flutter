@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../providers/app_controller.dart';
 
@@ -102,7 +106,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       await coordinator.signInWithGoogle();
       // Success: auth state stream will flip the app to the home screen.
-    } catch (e) {
+    } catch (e, stack) {
+      if (e is GoogleSignInException &&
+          e.code == GoogleSignInExceptionCode.canceled) {
+        return;
+      }
+      if (kDebugMode) {
+        // Log transport diagnostics without credentials or response bodies.
+        final detail = e is http.ClientException
+            ? e.message
+            : e is SocketException
+                ? e.message
+                : e.runtimeType.toString();
+        debugPrint('Google sign-in failed: $detail');
+        debugPrintStack(stackTrace: stack);
+      }
       if (mounted) setState(() => _error = _friendly(e.toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -110,6 +128,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   String _friendly(String raw) {
+    if (raw.contains('clientConfigurationError') ||
+        raw.contains('providerConfigurationError')) {
+      return 'Google sign-in is not configured for this app build.';
+    }
     if (raw.contains('EMAIL_EXISTS')) {
       return 'That email is already registered.';
     }
