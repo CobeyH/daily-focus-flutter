@@ -62,16 +62,18 @@ Future<SharedPreferences> _pump(WidgetTester tester, List<Task> tasks,
 
 Future<void> _goToWizard(WidgetTester tester, int step) async {
   for (var i = 0;
-      i < 5 && find.byKey(ValueKey('wizard-step-$step')).evaluate().isEmpty;
+      i < 12 && find.byKey(ValueKey('wizard-step-$step')).evaluate().isEmpty;
       i++) {
-    await tester.tap(find.text('Continue'));
+    final current = List.generate(6, (i) => i).firstWhere(
+        (i) => find.byKey(ValueKey('wizard-step-$i')).evaluate().isNotEmpty);
+    await tester.tap(find.text(current > step ? 'Back' : 'Continue'));
     await tester.pumpAndSettle();
   }
   expect(find.byKey(ValueKey('wizard-step-$step')), findsOneWidget);
 }
 
 Future<void> _saveWizard(WidgetTester tester) async {
-  await _goToWizard(tester, 4);
+  await _goToWizard(tester, 5);
   await tester.tap(find.text('Save changes'));
   await tester.pumpAndSettle();
 }
@@ -97,7 +99,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Walk outside'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
-    await _goToWizard(tester, 4);
+    await _goToWizard(tester, 5);
     expect(find.textContaining('Walk outside'), findsOneWidget);
     expect(AppStorage(prefs).loadTasks(), isEmpty);
     await tester.tap(find.text('Create task'));
@@ -143,7 +145,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit task'));
     await tester.pumpAndSettle();
-    await _goToWizard(tester, 3);
+    await _goToWizard(tester, 2);
+    await tester.tap(find.byKey(const ValueKey('appearance-slot-custom')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evening · 18:00').last);
+    await tester.pumpAndSettle();
+    await _goToWizard(tester, 4);
     await tester.ensureVisible(find.byKey(const ValueKey('choose-task-icon')));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
@@ -157,6 +164,7 @@ void main() {
     await tester.tap(find.text('Laundry'));
     await tester.pumpAndSettle();
     await _saveWizard(tester);
+    expect(AppStorage(prefs).loadTasks().single.timing.slot?.name, 'evening');
     expect(AppStorage(prefs).loadTasks().single.icon,
         Icons.local_laundry_service.codePoint);
     expect(find.byIcon(Icons.local_laundry_service), findsOneWidget);
@@ -164,7 +172,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit task'));
     await tester.pumpAndSettle();
-    await _goToWizard(tester, 3);
+    await _goToWizard(tester, 4);
     await tester.ensureVisible(find.byKey(const ValueKey('choose-task-icon')));
     await tester.pumpAndSettle();
     expect(find.text('Laundry'), findsOneWidget);
@@ -175,7 +183,7 @@ void main() {
     await _pump(tester, [_task()],
         width: 320, scale: 1.5, home: TaskCreationScreen(existing: _task()));
     expect(tester.takeException(), isNull);
-    await _goToWizard(tester, 2);
+    await _goToWizard(tester, 3);
     await tester.ensureVisible(find.byKey(const ValueKey('grace-days')));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
@@ -211,7 +219,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit task'));
     await tester.pumpAndSettle();
-    await _goToWizard(tester, 2);
+    await _goToWizard(tester, 3);
     await tester.ensureVisible(find.byKey(const ValueKey('grace-days')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('grace-days')));
@@ -232,6 +240,7 @@ void main() {
     await tester.enterText(inputs.at(1), '30');
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
+    await _goToWizard(tester, 2);
     await tester.ensureVisible(find.byKey(const ValueKey('appearance-time')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('appearance-time')));

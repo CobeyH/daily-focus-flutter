@@ -93,7 +93,8 @@ class TaskCard extends ConsumerWidget {
                         children: [
                       Text(task.name, style: text.titleMedium),
                       const SizedBox(height: 3),
-                      Text(task.schedule.describe(),
+                      Text(
+                          '${task.schedule.describe()}${task.timing.slot == null ? '' : ' · ${task.timing.slot!.label}'}',
                           style: text.bodySmall
                               ?.copyWith(color: colors.onSurfaceVariant)),
                     ])),

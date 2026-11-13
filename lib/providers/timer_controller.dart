@@ -1,3 +1,4 @@
+import 'day_slots_provider.dart';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,8 +69,11 @@ class TimerController extends Notifier<TimerState> {
   Future<void> start(Task task, {String? occurrenceKey}) async {
     if (task.type != TaskType.minutes) return;
     final now = ref.read(timeSourceProvider)();
-    final occurrence =
-        currentOccurrence(task, ref.read(appControllerProvider).entries, now);
+    final occurrence = currentOccurrence(
+        task,
+        ref.read(appControllerProvider).entries,
+        now,
+        ref.read(daySlotsProvider));
     final key = occurrenceKey ?? occurrence?.key;
     if (key == null) return;
     final existing = state.timers[task.id];
@@ -210,7 +214,7 @@ class TimerController extends Notifier<TimerState> {
         found,
         timer.occurrenceKey ??
             currentOccurrence(found, ref.read(appControllerProvider).entries,
-                    timer.startedAt.toLocal())
+                    timer.startedAt.toLocal(), ref.read(daySlotsProvider))
                 ?.key ??
             dateKey(timer.startedAt.toLocal()),
         completedAt: timer.updatedAt.add(timer.remaining).toLocal());

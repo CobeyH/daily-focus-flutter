@@ -1,3 +1,4 @@
+import '../providers/day_slots_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/task_occurrence.dart';
@@ -8,6 +9,7 @@ import '../utils/dates.dart';
 import 'streak_screen.dart';
 import 'task_card.dart';
 import 'task_creation.dart';
+import 'day_slots_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,6 +23,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
     final now = ref.watch(clockProvider);
+    final slots = ref.watch(daySlotsProvider);
     final timers =
         ref.watch(timerControllerProvider.select((value) => value.timers));
     final colors = Theme.of(context).colorScheme;
@@ -28,14 +31,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final occurrences = <TaskOccurrence>[];
     for (final task in state.tasks) {
       var occurrence = _view == 'Upcoming'
-          ? nextOccurrence(task, state.entries, now)
-          : currentOccurrence(task, state.entries, now);
+          ? nextOccurrence(task, state.entries, now, slots)
+          : currentOccurrence(task, state.entries, now, slots);
       final timerKey = timers[task.id]?.occurrenceKey;
       if (_view != 'Upcoming' && timerKey != null) {
         occurrence = TaskOccurrence(task, DateTime.parse(timerKey),
-            entryFor(state.entries, task.id, timerKey), now);
+            entryFor(state.entries, task.id, timerKey), now, slots);
       }
-      if (occurrence != null && (_view != 'Today' || occurrence.visible)) {
+      if (occurrence != null) {
         occurrences.add(occurrence);
       }
       if (_view == 'Today') {
@@ -46,7 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (!occurrences
               .any((o) => o.task.id == task.id && o.key == entry.dateKey)) {
             occurrences.add(TaskOccurrence(
-                task, DateTime.parse(entry.dateKey), entry, now));
+                task, DateTime.parse(entry.dateKey), entry, now, slots));
           }
         }
       }
@@ -63,7 +66,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final compare = rank(a).compareTo(rank(b));
       return compare == 0 ? a.dueDate.compareTo(b.dueDate) : compare;
     });
-    final pending = occurrences.where((o) => !o.done && !o.skipped).toList();
+    final pending = occurrences
+        .where((o) => !o.done && !o.skipped && (_view != 'Today' || o.visible))
+        .toList();
+    final upcomingToday = occurrences
+        .where((o) =>
+            !o.done &&
+            !o.skipped &&
+            now.isBefore(o.appearsAt) &&
+            dateKey(o.appearsAt) == dateKey(now))
+        .toList()
+      ..sort((a, b) => a.appearsAt.compareTo(b.appearsAt));
     final completed = occurrences.where((o) => o.done || o.skipped).toList();
     return Scaffold(
       appBar: AppBar(
@@ -85,6 +98,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     text.labelMedium?.copyWith(color: colors.onSurfaceVariant)),
           ]),
           actions: [
+            IconButton(
+                tooltip: 'Time slots',
+                icon: const Icon(Icons.tune),
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DaySlotsScreen()))),
             IconButton(
                 tooltip: 'History',
                 onPressed: () => Navigator.of(context).push(
@@ -117,6 +135,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             onSelected: (_) => setState(() => _view = view))
                     ]),
                     const SizedBox(height: 24),
+                    if (_view == 'Today')
+                      Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text('Tasks', style: text.titleLarge)),
                     if (pending.isEmpty)
                       Card(
                           child: Padding(
@@ -155,6 +177,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   '${occurrence.task.id}/${occurrence.key}'),
                               task: occurrence.task,
                               occurrence: occurrence)),
+                    if (_view == 'Today' && upcomingToday.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Text('Upcoming tasks', style: text.titleLarge),
+                      const SizedBox(height: 12),
+                      for (final occurrence in upcomingToday)
+                        Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: TaskCard(
+                                key: ValueKey(
+                                    'later-${occurrence.task.id}/${occurrence.key}'),
+                                task: occurrence.task,
+                                occurrence: occurrence)),
+                    ],
                     if (completed.isNotEmpty)
                       Padding(
                           padding: const EdgeInsets.only(top: 16),

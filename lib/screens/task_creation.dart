@@ -1,3 +1,6 @@
+import '../models/day_slots.dart';
+import 'day_slots_screen.dart';
+import '../providers/day_slots_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +22,7 @@ class TaskCreationScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
-  final _forms = List.generate(5, (_) => GlobalKey<FormState>());
+  final _forms = List.generate(6, (_) => GlobalKey<FormState>());
   int _step = 0;
   late TextEditingController _name, _count, _hours, _minutes, _seconds;
   late TaskType _type;
@@ -44,7 +47,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
     _seconds =
         TextEditingController(text: '${duration.inSeconds.remainder(60)}');
     _schedule = task?.schedule ?? const ScheduleDaily();
-    _timing = task?.timing ?? const TaskTiming();
+    _timing = task?.timing ?? const TaskTiming(slot: DaySlot.morning);
     _color = task?.color ?? taskColors.first;
     _icon = task?.icon ?? taskIcons.first.codePoint;
   }
@@ -59,7 +62,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
-    for (var step = 0; step < 3; step++) {
+    for (var step = 0; step < 4; step++) {
       final error = _validationError(step);
       if (error != null) {
         setState(() {
@@ -174,7 +177,8 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
         (_schedule as ScheduleWeekly).daysOfWeek.isEmpty) {
       return 'Choose at least one weekday.';
     }
-    if (step == 2 && !_timing.isValid) {
+    if ((step == 2 || step == 3) &&
+        !_timing.isValidFor(ref.read(daySlotsProvider))) {
       return 'The task must appear before its due time.';
     }
     return null;
@@ -276,10 +280,22 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                   style: TextStyle(fontSize: 12)),
           ])),
       _section(
-          'Timing & flexibility',
-          'Visibility and deadlines work independently.',
+          'Visibility',
+          'Choose when it appears and how long it stays.',
           TaskTimingPicker(
               value: _timing,
+              visibilityOnly: true,
+              onEditSlots: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DaySlotsScreen())),
+              slots: ref.watch(daySlotsProvider),
+              onChanged: (value) => setState(() => _timing = value))),
+      _section(
+          'Deadline & grace',
+          'Choose when it is due and how much flexibility you need.',
+          TaskTimingPicker(
+              value: _timing,
+              deadlineOnly: true,
+              slots: ref.watch(daySlotsProvider),
               onChanged: (value) => setState(() => _timing = value))),
       _section(
           'Personalize',
@@ -303,17 +319,24 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                 0),
             _review('Repeat', _schedule.describe(), 1),
             _review(
-                'Timing & flexibility',
-                'Show ${_timing.showDaysBefore == 0 ? 'on the due day' : '${_timing.showDaysBefore} days early'} at ${clockLabel(_timing.showMinute)}\n'
-                    'Due ${_timing.dueMinute == null ? 'at end of day' : 'at ${clockLabel(_timing.dueMinute!)}'} · ${_timing.graceDays == 0 ? 'No grace period' : '${_timing.graceDays} days grace'}',
+                'Visibility',
+                'Show ${_timing.showDaysBefore == 0 ? 'on the due day' : '${_timing.showDaysBefore} days early'} at ${clockLabel(_timing.startMinute(ref.watch(daySlotsProvider)))}\n'
+                    'Visible ${_timing.visibleDaysAfter == null ? 'until completed' : 'through ${_timing.visibleDaysAfter} days after due'}',
                 2),
+            _review(
+                'Deadline & grace',
+                'Due ${_timing.dueMinute == null ? 'at end of day' : 'at ${clockLabel(_timing.dueMinute!)}'} · ${_timing.graceDays == 0 ? 'No grace period' : '${_timing.graceDays} days grace'}',
+                3),
             ListTile(
                 leading: Icon(iconFor(_icon), color: Color(_color)),
                 title: const Text('Appearance'),
                 trailing: const Icon(Icons.edit_outlined),
-                onTap: () => _goTo(3)),
+                onTap: () => _goTo(4)),
           ])),
     ];
+    while (_forms.length < pages.length) {
+      _forms.add(GlobalKey<FormState>());
+    }
     return PopScope(
       canPop: _step == 0 && !_saving,
       onPopInvokedWithResult: (didPop, _) {
@@ -347,10 +370,11 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                    'Step ${_step + 1} of 5 · ${const [
+                                    'Step ${_step + 1} of 6 · ${const [
                                       'Task',
                                       'Repeat',
-                                      'Timing',
+                                      'Visibility',
+                                      'Deadline',
                                       'Appearance',
                                       'Review'
                                     ][_step]}',
@@ -358,7 +382,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                                         Theme.of(context).textTheme.labelLarge),
                                 const SizedBox(height: 10),
                                 LinearProgressIndicator(
-                                    value: (_step + 1) / 5,
+                                    value: (_step + 1) / 6,
                                     semanticsLabel: 'Task setup progress'),
                               ])),
                       Expanded(
@@ -397,12 +421,12 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                                     child: FilledButton(
                                         onPressed: _saving
                                             ? null
-                                            : _step == 4
+                                            : _step == 5
                                                 ? _save
                                                 : _next,
                                         child: Text(_saving
                                             ? 'Saving…'
-                                            : _step < 4
+                                            : _step < 5
                                                 ? 'Continue'
                                                 : widget.existing == null
                                                     ? 'Create task'

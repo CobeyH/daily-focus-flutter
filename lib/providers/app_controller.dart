@@ -1,3 +1,4 @@
+import 'day_slots_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -242,11 +243,14 @@ class AppController extends Notifier<AppState> {
   }
 
   TaskOccurrence? _target(Task task, DateTime now, String? key) {
-    if (key == null) return currentOccurrence(task, state.entries, now);
+    if (key == null) {
+      return currentOccurrence(
+          task, state.entries, now, ref.read(daySlotsProvider));
+    }
     final due = DateTime.tryParse(key);
     if (due == null) return null;
-    return TaskOccurrence(
-        task, dateOnly(due), entryFor(state.entries, task.id, key), now);
+    return TaskOccurrence(task, dateOnly(due),
+        entryFor(state.entries, task.id, key), now, ref.read(daySlotsProvider));
   }
 
   Future<void> _record(
@@ -313,8 +317,11 @@ DateTime? firstMissedDueDate(Task task, DateTime day, AppState state) {
 }
 
 final taskOccurrenceProvider = Provider.family<TaskOccurrence?, Task>(
-    (ref, task) => currentOccurrence(task,
-        ref.watch(appControllerProvider).entries, ref.watch(clockProvider)));
+    (ref, task) => currentOccurrence(
+        task,
+        ref.watch(appControllerProvider).entries,
+        ref.watch(clockProvider),
+        ref.watch(daySlotsProvider)));
 
 final tasksForTodayProvider =
     Provider<List<Task>>((ref) => ref.watch(tasksProvider));

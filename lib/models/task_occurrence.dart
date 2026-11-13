@@ -1,5 +1,6 @@
 import '../utils/dates.dart';
 import 'task.dart';
+import 'day_slots.dart';
 import 'task_entry.dart';
 
 enum OccurrenceStatus {
@@ -17,20 +18,23 @@ class TaskOccurrence {
   final DateTime dueDate;
   final TaskEntry? entry;
   final DateTime now;
-  const TaskOccurrence(this.task, this.dueDate, this.entry, this.now);
+  final DaySlots slots;
+  const TaskOccurrence(this.task, this.dueDate, this.entry, this.now,
+      [this.slots = const DaySlots()]);
   String get key => dateKey(dueDate);
   int get progress => entry?.progress ?? 0;
   bool get done => entry?.isComplete(task.goal) ?? false;
   bool get skipped => entry?.skipped ?? false;
-  DateTime get appearsAt => task.timing.appearsAt(dueDate);
-  bool get visible => !now.isBefore(appearsAt);
+  DateTime get appearsAt => task.timing.appearsAt(dueDate, slots);
+  bool get visible =>
+      !now.isBefore(appearsAt) && !task.timing.visibilityEnded(dueDate, now);
   bool get completedToday =>
       entry?.completedAt != null &&
       dateKey(entry!.completedAt!.toLocal()) == dateKey(now);
   OccurrenceStatus get status {
     if (skipped) return OccurrenceStatus.skipped;
     if (done) return OccurrenceStatus.complete;
-    if (!visible) return OccurrenceStatus.upcoming;
+    if (now.isBefore(appearsAt)) return OccurrenceStatus.upcoming;
     if (task.timing.pastGrace(dueDate, now)) return OccurrenceStatus.overdue;
     if (task.timing.pastDue(dueDate, now)) return OccurrenceStatus.grace;
     if (dateOnly(now).isBefore(dueDate)) return OccurrenceStatus.available;
@@ -43,7 +47,7 @@ class TaskOccurrence {
       '${shortDate(calendarDay(dueDate, task.timing.graceDays))}${task.timing.dueMinute == null ? ', end of day' : ' at ${clockLabel(task.timing.dueMinute!)}'}';
   String get label => switch (status) {
         OccurrenceStatus.upcoming =>
-          'Appears ${shortDate(appearsAt)} at ${clockLabel(task.timing.showMinute)}',
+          'Appears ${shortDate(appearsAt)} at ${clockLabel(task.timing.startMinute(slots))}',
         OccurrenceStatus.available => 'Available early · Due $dueLabel',
         OccurrenceStatus.due => task.timing.dueMinute == null
             ? 'Due today'
@@ -73,11 +77,12 @@ DateTime scheduleStart(Task task) =>
 /// expired cycles move to history once a new scheduled cycle is due. Off-day
 /// recurring tasks remain actionable until their next due date.
 TaskOccurrence? currentOccurrence(
-    Task task, Iterable<TaskEntry> entries, DateTime now) {
+    Task task, Iterable<TaskEntry> entries, DateTime now,
+    [DaySlots slots = const DaySlots()]) {
   final start = scheduleStart(task);
   final today = dateOnly(now);
-  TaskOccurrence at(DateTime day) =>
-      TaskOccurrence(task, day, entryFor(entries, task.id, dateKey(day)), now);
+  TaskOccurrence at(DateTime day) => TaskOccurrence(
+      task, day, entryFor(entries, task.id, dateKey(day)), now, slots);
   DateTime? last = task.schedule.lastDueDateOnOrBefore(today);
   if (last != null && last.isBefore(start)) last = null;
 
@@ -109,14 +114,15 @@ TaskOccurrence? currentOccurrence(
 }
 
 TaskOccurrence? nextOccurrence(
-    Task task, Iterable<TaskEntry> entries, DateTime now) {
+    Task task, Iterable<TaskEntry> entries, DateTime now,
+    [DaySlots slots = const DaySlots()]) {
   var day = task.schedule.firstDueDateFrom(
       dateOnly(now).isBefore(scheduleStart(task))
           ? scheduleStart(task)
           : dateOnly(now));
   for (var i = 0; i < 366 && day != null; i++) {
     final occurrence = TaskOccurrence(
-        task, day, entryFor(entries, task.id, dateKey(day)), now);
+        task, day, entryFor(entries, task.id, dateKey(day)), now, slots);
     if (!occurrence.done && !occurrence.skipped && !occurrence.visible) {
       return occurrence;
     }

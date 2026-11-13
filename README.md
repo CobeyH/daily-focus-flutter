@@ -6,10 +6,22 @@ SharedPreferences for immediate local access and syncs to Firebase when signed i
 ## Task scheduling
 
 Create a task, or choose **Task options → Edit task**. The wizard walks through
-Task, Repeat, Timing, Appearance, and Review. Back keeps your draft; nothing is
-saved until the final confirmation. Appearance and grace settings are on Timing:
+Task, Repeat, Visibility, Deadline, Appearance, and Review. Back keeps your draft;
+nothing is saved until the final confirmation.
 
-- **Show in Today**: the due day or up to 30 days earlier, with an appearance time.
+- **Time slots** (sliders button on the home screen): set Morning, Afternoon, and
+  Evening starts. Defaults are 06:00, 12:00, and 18:00, in device local time.
+  These app-wide preferences persist on this device. Tasks store a slot reference,
+  so changing its start updates every task assigned to it. Existing tasks retain
+  their custom appearance times; new tasks default to Morning.
+- **Visibility**: choose how many days before due to appear, a slot or custom
+  time, and how many days after due to stay visible (or until completed).
+  Later slots never hide unfinished earlier tasks. Visibility ends at midnight
+  after the final chosen day, independently of streak credit.
+- **Tasks / Upcoming tasks**: Today includes actionable tasks and, below them,
+  tasks whose visibility will start later today. Other future dates remain in
+  the Upcoming view. The list updates at minute boundaries and on app resume.
+
 - **Due time**: a specific local time, or end of day.
 - **Grace period**: none (strict), or up to 30 calendar days late. A Wednesday
   task with two grace days can be completed through Friday at the same due time.
