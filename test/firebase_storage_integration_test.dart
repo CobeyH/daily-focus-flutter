@@ -183,6 +183,35 @@ void main() {
       }
     });
 
+    test(
+        'syncs ordered step definitions and an unfinished occurrence between devices',
+        () async {
+      final task = Task.create(
+          name: 'Laundry',
+          type: TaskType.multiStep,
+          steps: const ['Wash laundry', 'Dry laundry'],
+          goal: 2,
+          step: 1,
+          color: 0xff247866,
+          icon: 0xe0b0);
+      final entry = TaskEntry(
+          taskId: task.id,
+          dateKey: '2026-11-13',
+          progress: 1,
+          steps: task.steps,
+          updatedAt: DateTime.utc(2026, 11, 13, 13));
+      await first.push(
+          snapshot:
+              RemoteSnapshot(tasks: [task], entries: [entry], timers: []));
+      final restored = await second.pull();
+      expect(restored.tasks.single.type, TaskType.multiStep);
+      expect(restored.tasks.single.steps, ['Wash laundry', 'Dry laundry']);
+      expect(restored.entries.single.steps, ['Wash laundry', 'Dry laundry']);
+      expect(restored.entries.single.progress, 1);
+      expect(restored.entries.single.isComplete(restored.tasks.single.goal),
+          isFalse);
+    });
+
     test('auth listeners receive the current state and sign-out', () async {
       expect(await first.observeAuthState().first, isTrue);
       final signedOut = first.observeAuthState().firstWhere((value) => !value);

@@ -180,8 +180,13 @@ class AppController extends Notifier<AppState> {
     final DateTime time = now ?? ref.read(timeSourceProvider)();
     final occurrence = _target(task, time, occurrenceKey);
     if (occurrence == null || !occurrence.visible || occurrence.done) return;
-    await _record(task, occurrence,
-        (occurrence.progress + task.step).clamp(0, task.goal), time);
+    await _record(
+        task,
+        occurrence,
+        (occurrence.progress +
+                (task.type == TaskType.multiStep ? 1 : task.step))
+            .clamp(0, occurrence.goal),
+        time);
   }
 
   Future<void> decrement(Task task,
@@ -189,8 +194,13 @@ class AppController extends Notifier<AppState> {
     final DateTime time = now ?? ref.read(timeSourceProvider)();
     final occurrence = _target(task, time, occurrenceKey);
     if (occurrence == null) return;
-    await _record(task, occurrence,
-        (occurrence.progress - task.step).clamp(0, task.goal), time);
+    await _record(
+        task,
+        occurrence,
+        (occurrence.progress -
+                (task.type == TaskType.multiStep ? 1 : task.step))
+            .clamp(0, occurrence.goal),
+        time);
   }
 
   Future<void> markComplete(Task task,
@@ -198,7 +208,7 @@ class AppController extends Notifier<AppState> {
     final DateTime time = now ?? ref.read(timeSourceProvider)();
     final occurrence = _target(task, time, occurrenceKey);
     if (occurrence == null || !occurrence.visible || occurrence.done) return;
-    await _record(task, occurrence, task.goal, time);
+    await _record(task, occurrence, occurrence.goal, time);
     if (task.type == TaskType.minutes) {
       await ref.read(timerControllerProvider.notifier).clearFor(task.id);
     }
@@ -209,7 +219,7 @@ class AppController extends Notifier<AppState> {
     final time = completedAt ?? DateTime.now();
     final occurrence = _target(task, time, dueKey);
     if (occurrence == null || occurrence.done || occurrence.skipped) return;
-    await _record(task, occurrence, task.goal, time);
+    await _record(task, occurrence, occurrence.goal, time);
   }
 
   Future<void> reset(Task task, {DateTime? now, String? occurrenceKey}) async {
@@ -256,7 +266,7 @@ class AppController extends Notifier<AppState> {
   Future<void> _record(
       Task task, TaskOccurrence occurrence, int progress, DateTime time,
       {bool skipped = false}) async {
-    final finished = progress >= task.goal;
+    final finished = progress >= occurrence.goal;
     final timing = !finished
         ? null
         : task.timing.pastGrace(occurrence.dueDate, time)
@@ -273,10 +283,13 @@ class AppController extends Notifier<AppState> {
         taskId: task.id,
         dateKey: occurrence.key,
         progress: progress,
+        steps: task.type == TaskType.multiStep
+            ? List.unmodifiable(occurrence.steps)
+            : null,
         updatedAt: updatedAt,
         completedAt: finished || skipped ? time.toUtc() : null,
         completionTiming: timing,
-        completedGoal: finished ? task.goal : null,
+        completedGoal: finished ? occurrence.goal : null,
         previousProgress: finished || skipped ? occurrence.progress : null,
         skipped: skipped));
   }

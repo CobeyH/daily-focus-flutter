@@ -80,6 +80,54 @@ Future<void> _saveWizard(WidgetTester tester) async {
 
 void main() {
   testWidgets(
+      'multi-step wizard validates names, reorders, persists, and completes each stage',
+      (tester) async {
+    final prefs = await _pump(tester, [], width: 320, scale: 1.5);
+    await tester.tap(find.text('New task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Task name'), 'Laundry');
+    await tester.tap(find.text('Multi-step'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Name this step.'), findsNWidgets(2));
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Step 1'), 'Dry laundry');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Step 2'), 'Wash laundry');
+    await tester.ensureVisible(find.byTooltip('Move step 2 up'));
+    await tester.tap(find.byTooltip('Move step 2 up'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<TextFormField>(find.widgetWithText(TextFormField, 'Step 1'))
+            .controller!
+            .text,
+        'Wash laundry');
+    await _goToWizard(tester, 5);
+    expect(find.textContaining('Wash laundry → Dry laundry'), findsOneWidget);
+    await tester.tap(find.text('Create task'));
+    await tester.pumpAndSettle();
+    expect(AppStorage(prefs).loadTasks().single.steps,
+        ['Wash laundry', 'Dry laundry']);
+    expect(find.text('Next: Wash laundry'), findsOneWidget);
+    await tester.tap(find.text('Complete step'));
+    await tester.pumpAndSettle();
+    expect(find.text('Next: Dry laundry'), findsOneWidget);
+    expect(AppStorage(prefs).loadEntries().single.progress, 1);
+    await tester.tap(find.text('Undo last step'));
+    await tester.pumpAndSettle();
+    expect(find.text('Next: Wash laundry'), findsOneWidget);
+    await tester.tap(find.text('Complete step'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Complete step'));
+    await tester.pumpAndSettle();
+    expect(AppStorage(prefs).loadEntries().single.isComplete(2), isTrue);
+    expect(find.text('Completed & skipped (1)'), findsOneWidget);
+  });
+
+  testWidgets(
       'count selector aligns with name and never-repeat saves through the wizard',
       (tester) async {
     final prefs = await _pump(tester, []);

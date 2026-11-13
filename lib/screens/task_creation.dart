@@ -25,6 +25,13 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
   final _forms = List.generate(6, (_) => GlobalKey<FormState>());
   int _step = 0;
   late TextEditingController _name, _count, _hours, _minutes, _seconds;
+  List<TextEditingController>? _stepNames;
+  List<TextEditingController> get _stepFields => _stepNames ??= [
+        for (final name in widget.existing?.steps.isNotEmpty == true
+            ? widget.existing!.steps
+            : const ['', ''])
+          TextEditingController(text: name)
+      ];
   late TaskType _type;
   late Schedule _schedule;
   late TaskTiming _timing;
@@ -57,6 +64,9 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
     for (final controller in [_name, _count, _hours, _minutes, _seconds]) {
       controller.dispose();
     }
+    for (final controller in _stepNames ?? <TextEditingController>[]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -72,11 +82,13 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
         return;
       }
     }
-    final goal = _type == TaskType.count
-        ? int.tryParse(_count.text) ?? 0
-        : (int.tryParse(_hours.text) ?? 0) * 3600 +
-            (int.tryParse(_minutes.text) ?? 0) * 60 +
-            (int.tryParse(_seconds.text) ?? 0);
+    final goal = _type == TaskType.multiStep
+        ? _stepFields.length
+        : _type == TaskType.count
+            ? int.tryParse(_count.text) ?? 0
+            : (int.tryParse(_hours.text) ?? 0) * 3600 +
+                (int.tryParse(_minutes.text) ?? 0) * 60 +
+                (int.tryParse(_seconds.text) ?? 0);
     setState(() {
       _saving = true;
       _error = null;
@@ -86,6 +98,9 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
     final task = existing?.copyWith(
             name: _name.text.trim(),
             type: _type,
+            steps: _type == TaskType.multiStep
+                ? _stepFields.map((c) => c.text.trim()).toList()
+                : const [],
             goal: goal,
             step: 1,
             color: _color,
@@ -93,8 +108,12 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
             schedule: _schedule,
             timing: _timing) ??
         Task.create(
+            createdAt: ref.read(timeSourceProvider)(),
             name: _name.text.trim(),
             type: _type,
+            steps: _type == TaskType.multiStep
+                ? _stepFields.map((c) => c.text.trim()).toList()
+                : const [],
             goal: goal,
             step: 1,
             color: _color,
@@ -158,7 +177,12 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
       final hours = int.tryParse(_hours.text);
       final minutes = int.tryParse(_minutes.text);
       final seconds = int.tryParse(_seconds.text);
-      if (_type == TaskType.count) {
+      if (_type == TaskType.multiStep) {
+        if (_stepFields.length < 2 ||
+            _stepFields.any((c) => c.text.trim().isEmpty)) {
+          return 'Add at least two named steps.';
+        }
+      } else if (_type == TaskType.count) {
         if (count == null || count <= 0) {
           return 'Choose a goal greater than zero.';
         }
@@ -202,6 +226,67 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
     _goTo(_step + 1);
   }
 
+  void _moveStep(int from, int to) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      final item = _stepFields.removeAt(from);
+      _stepFields.insert(to, item);
+    });
+  }
+
+  Widget _stepsEditor() =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Complete these steps in order.'),
+        for (var i = 0; i < _stepFields.length; i++)
+          Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Column(children: [
+                TextFormField(
+                    key: ObjectKey(_stepFields[i]),
+                    controller: _stepFields[i],
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLength: 120,
+                    decoration: InputDecoration(
+                        labelText: 'Step ${i + 1}', counterText: ''),
+                    validator: (text) => text == null || text.trim().isEmpty
+                        ? 'Name this step.'
+                        : null),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  IconButton(
+                      tooltip: 'Move step ${i + 1} up',
+                      onPressed: i == 0 ? null : () => _moveStep(i, i - 1),
+                      icon: const Icon(Icons.arrow_upward, size: 20)),
+                  IconButton(
+                      tooltip: 'Move step ${i + 1} down',
+                      onPressed: i == _stepFields.length - 1
+                          ? null
+                          : () => _moveStep(i, i + 1),
+                      icon: const Icon(Icons.arrow_downward, size: 20)),
+                  IconButton(
+                      tooltip: 'Remove step ${i + 1}',
+                      onPressed: _stepFields.length <= 2
+                          ? null
+                          : () {
+                              FocusScope.of(context).unfocus();
+                              final removed = _stepFields[i];
+                              setState(() => _stepFields.removeAt(i));
+                              WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => removed.dispose());
+                            },
+                      icon: const Icon(Icons.close, size: 20)),
+                ]),
+              ])),
+        if (_stepFields.length < 20)
+          TextButton.icon(
+              onPressed: () =>
+                  setState(() => _stepFields.add(TextEditingController())),
+              icon: const Icon(Icons.add),
+              label: const Text('Add step')),
+        if (widget.existing?.type == TaskType.multiStep)
+          const Text(
+              'Started occurrences keep their original steps. Changes apply to future occurrences.'),
+      ]);
+
   Widget _review(String title, String value, int step) => ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(title),
@@ -238,9 +323,15 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                     avatar: Icon(
                         type == TaskType.count
                             ? Icons.check_rounded
-                            : Icons.timer_outlined,
+                            : type == TaskType.minutes
+                                ? Icons.timer_outlined
+                                : Icons.checklist_rounded,
                         size: 18),
-                    label: Text(type == TaskType.count ? 'Count' : 'Timer'),
+                    label: Text(switch (type) {
+                      TaskType.count => 'Count',
+                      TaskType.minutes => 'Timer',
+                      TaskType.multiStep => 'Multi-step'
+                    }),
                     selected: _type == type,
                     showCheckmark: false,
                     onSelected: (_) => setState(() => _type = type)),
@@ -248,6 +339,8 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
             const SizedBox(height: 16),
             if (_type == TaskType.count)
               _number(_count, 'Times per occurrence')
+            else if (_type == TaskType.multiStep)
+              _stepsEditor()
             else
               Row(children: [
                 Expanded(child: _number(_hours, 'Hours', max: 99)),
@@ -315,7 +408,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
           Column(children: [
             _review(
                 'Task',
-                '${_name.text.trim()} · ${_type == TaskType.count ? '${_count.text} times' : '${_hours.text}h ${_minutes.text}m ${_seconds.text}s'}',
+                '${_name.text.trim()} · ${_type == TaskType.multiStep ? '${_stepFields.length} steps: ${_stepFields.map((c) => c.text.trim()).join(' → ')}' : _type == TaskType.count ? '${_count.text} times' : '${_hours.text}h ${_minutes.text}m ${_seconds.text}s'}',
                 0),
             _review('Repeat', _schedule.describe(), 1),
             _review(

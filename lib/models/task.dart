@@ -3,17 +3,24 @@ import 'package:uuid/uuid.dart';
 import 'schedule.dart';
 import 'task_timing.dart';
 
-/// The two kinds of tasks described by the product goals.
+/// The kinds of tasks described by the product goals.
 ///
 /// * [count]   — occurrence based ("do X 5 times a day"). Each tap = +1.
 /// * [minutes] — time based ("do X for N minutes a day"). Each tap = +step.
-enum TaskType { count, minutes }
+enum TaskType { count, minutes, multiStep }
 
 extension TaskTypeX on TaskType {
-  String get label => this == TaskType.count ? 'times' : 'minutes';
+  String get label => switch (this) {
+        TaskType.count => 'times',
+        TaskType.minutes => 'minutes',
+        TaskType.multiStep => 'multiStep'
+      };
 
-  static TaskType fromValue(String v) =>
-      v == 'minutes' ? TaskType.minutes : TaskType.count;
+  static TaskType fromValue(String v) => switch (v) {
+        'minutes' => TaskType.minutes,
+        'multiStep' => TaskType.multiStep,
+        _ => TaskType.count
+      };
 }
 
 class Task {
@@ -25,7 +32,10 @@ class Task {
 
   /// Daily target. For [TaskType.count] it's a number of occurrences; for
   /// [TaskType.minutes] it's a number of seconds.
-  final int goal;
+  final int _goal;
+  final List<String> steps;
+  int get goal =>
+      type == TaskType.multiStep ? steps.length.clamp(1, 10000) : _goal;
 
   /// How much one tap contributes. For [TaskType.count] this is always 1; for
   /// [TaskType.minutes] it's a configurable chunk of minutes (e.g. 5).
@@ -49,7 +59,8 @@ class Task {
     required this.id,
     required this.name,
     required this.type,
-    required this.goal,
+    required int goal,
+    this.steps = const [],
     required this.step,
     required this.color,
     required this.icon,
@@ -57,27 +68,30 @@ class Task {
     this.updatedAt,
     this.timing = const TaskTiming(),
     this.schedule = const ScheduleDaily(),
-  });
+  }) : _goal = goal;
 
   factory Task.create({
     required String name,
     required TaskType type,
     required int goal,
+    List<String> steps = const [],
     required int step,
     required int color,
     required int icon,
     Schedule schedule = const ScheduleDaily(),
     TaskTiming timing = const TaskTiming(),
+    DateTime? createdAt,
   }) {
     return Task(
       id: const Uuid().v4(),
       name: name,
       type: type,
       goal: goal,
+      steps: List.unmodifiable(steps),
       step: step,
       color: color,
       icon: icon,
-      createdAt: DateTime.now(),
+      createdAt: createdAt ?? DateTime.now(),
       schedule: schedule,
       timing: timing,
     );
@@ -87,6 +101,7 @@ class Task {
     String? name,
     TaskType? type,
     int? goal,
+    List<String>? steps,
     int? step,
     int? color,
     int? icon,
@@ -99,6 +114,7 @@ class Task {
       name: name ?? this.name,
       type: type ?? this.type,
       goal: goal ?? this.goal,
+      steps: List.unmodifiable(steps ?? this.steps),
       step: step ?? this.step,
       color: color ?? this.color,
       icon: icon ?? this.icon,
@@ -114,6 +130,7 @@ class Task {
         'name': name,
         'type': type.label,
         'goal': goal,
+        if (steps.isNotEmpty) 'steps': steps,
         'goalSeconds': true,
         'step': step,
         'color': color,
@@ -140,6 +157,8 @@ class Task {
       name: json['name'] as String,
       type: type,
       goal: goal,
+      steps: List<String>.unmodifiable(
+          (json['steps'] as List?)?.whereType<String>() ?? const <String>[]),
       step: json['step'] as int? ?? 1,
       color: json['color'] as int? ?? 0xFF5C6BC0,
       icon: json['icon'] as int? ?? 0xe0b0,

@@ -13,6 +13,13 @@ In Repeat, choose **Never repeat** and a due date for a one-off task. It support
 the same visibility and grace settings as recurring tasks. Completion is recorded
 once in history and never schedules another occurrence.
 
+Choose **Multi-step** in the Task step for an ordered workflow, such as Wash
+laundry → Dry laundry. Add at least two named steps and reorder them with the
+arrow controls. Each tap completes the next step; only the final step completes
+the task. Undo restores the previous step. Progress syncs with the account and
+starts fresh on each scheduled occurrence. Started occurrences keep a snapshot
+of their step names, so later definition edits apply to future occurrences.
+
 - **Time slots** (sliders button on the home screen): set Morning, Afternoon, and
   Evening starts. Defaults are 06:00, 12:00, and 18:00, in device local time.
   These app-wide preferences persist on this device. Tasks store a slot reference,

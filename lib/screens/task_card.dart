@@ -39,7 +39,7 @@ class TaskCard extends ConsumerWidget {
         : remaining != null && task.goal > 0
             ? (1 - remaining.inMilliseconds / (task.goal * 1000))
                 .clamp(0.0, 1.0)
-            : (current.progress / task.goal).clamp(0.0, 1.0);
+            : (current.progress / current.goal).clamp(0.0, 1.0);
     final statusColor = switch (current.status) {
       OccurrenceStatus.overdue => colors.error,
       OccurrenceStatus.grace => colors.tertiary,
@@ -48,19 +48,19 @@ class TaskCard extends ConsumerWidget {
     };
     Future<void> undo() => controller.reset(task, occurrenceKey: current.key);
     Future<void> complete() async {
-      if (task.type == TaskType.count) {
+      if (task.type != TaskType.minutes) {
         await controller.increment(task, occurrenceKey: current.key);
       } else {
         await controller.markComplete(task, occurrenceKey: current.key);
       }
-      if (!context.mounted) return;
+      if (!context.mounted || task.type == TaskType.multiStep) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('${task.name} updated'),
           action: SnackBarAction(
               label: 'Undo',
               onPressed: () {
-                if (task.type == TaskType.count) {
+                if (task.type != TaskType.minutes) {
                   controller.decrement(task, occurrenceKey: current.key);
                 } else {
                   undo();
@@ -141,9 +141,10 @@ class TaskCard extends ConsumerWidget {
                           const PopupMenuItem(
                               value: 'edit', child: Text('Edit task')),
                           if (current.visible && !finished) ...[
-                            const PopupMenuItem(
-                                value: 'complete',
-                                child: Text('Mark complete')),
+                            if (task.type != TaskType.multiStep)
+                              const PopupMenuItem(
+                                  value: 'complete',
+                                  child: Text('Mark complete')),
                             const PopupMenuItem(
                                 value: 'skip',
                                 child: Text('Skip this occurrence')),
@@ -174,6 +175,15 @@ class TaskCard extends ConsumerWidget {
                     child: Text('Okay through ${current.graceLabel}',
                         style: text.bodySmall
                             ?.copyWith(color: colors.onSurfaceVariant))),
+              if (task.type == TaskType.multiStep &&
+                  current.visible &&
+                  !finished &&
+                  current.steps.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                    'Next: ${current.steps[current.progress.clamp(0, current.steps.length - 1)]}',
+                    style: text.titleSmall),
+              ],
               const SizedBox(height: 16),
               Wrap(
                   spacing: 16,
@@ -208,19 +218,32 @@ class TaskCard extends ConsumerWidget {
                         FilledButton.icon(
                             onPressed: complete,
                             icon: Icon(
-                                task.goal == 1
+                                task.type == TaskType.multiStep ||
+                                        task.goal == 1
                                     ? Icons.check_rounded
                                     : Icons.add_rounded,
                                 size: 18),
-                            label: Text(task.goal == 1 ? 'Complete' : 'Add 1')),
+                            label: Text(task.type == TaskType.multiStep
+                                ? 'Complete step'
+                                : task.goal == 1
+                                    ? 'Complete'
+                                    : 'Add 1')),
                     ],
+                    if (task.type == TaskType.multiStep &&
+                        !finished &&
+                        current.progress > 0)
+                      TextButton.icon(
+                          onPressed: () => controller.decrement(task,
+                              occurrenceKey: current.key),
+                          icon: const Icon(Icons.undo_rounded, size: 18),
+                          label: const Text('Undo last step')),
                     Text(
                         task.type == TaskType.minutes
                             ? remaining == null
                                 ? formatGoalDuration(
                                     Duration(seconds: task.goal))
                                 : '${_duration(remaining)} left'
-                            : '${current.progress} / ${task.goal} completed',
+                            : '${current.progress} / ${current.goal} ${task.type == TaskType.multiStep ? 'steps completed' : 'completed'}',
                         style: text.bodySmall
                             ?.copyWith(color: colors.onSurfaceVariant)),
                   ]),

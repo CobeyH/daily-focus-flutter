@@ -24,7 +24,11 @@ class TaskOccurrence {
       [this.slots = const DaySlots()]);
   String get key => dateKey(dueDate);
   int get progress => entry?.progress ?? 0;
-  bool get done => entry?.isComplete(task.goal) ?? false;
+  List<String> get steps => entry?.steps ?? task.steps;
+  int get goal => task.type == TaskType.multiStep
+      ? steps.length.clamp(1, 10000)
+      : task.goal;
+  bool get done => entry?.isComplete(goal) ?? false;
   bool get skipped => entry?.skipped ?? false;
   DateTime get appearsAt => task.timing.appearsAt(dueDate, slots);
   bool get visible =>
