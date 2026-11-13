@@ -80,6 +80,49 @@ Future<void> _saveWizard(WidgetTester tester) async {
 
 void main() {
   testWidgets(
+      'count selector aligns with name and never-repeat saves through the wizard',
+      (tester) async {
+    final prefs = await _pump(tester, []);
+    await tester.tap(find.text('New task'));
+    await tester.pumpAndSettle();
+    final name = find.widgetWithText(TextFormField, 'Task name');
+    final count = find.widgetWithText(ChoiceChip, 'Count');
+    expect(tester.getTopLeft(count).dx, tester.getTopLeft(name).dx);
+    await tester.enterText(name, 'Send application');
+    await _goToWizard(tester, 1);
+    await tester.tap(find.text('Never repeat'));
+    await tester.pumpAndSettle();
+    final dateField = find
+        .ancestor(
+            of: find.text('Happens once. No new occurrence after completion.'),
+            matching: find.byType(InkWell))
+        .first;
+    await tester.tap(dateField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    await _goToWizard(tester, 5);
+    expect(find.text('Never repeats'), findsOneWidget);
+    await tester.tap(find.text('Create task'));
+    await tester.pumpAndSettle();
+    final saved = AppStorage(prefs).loadTasks().single;
+    expect(saved.schedule, isA<ScheduleOnce>());
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Task options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit task'));
+    await tester.pumpAndSettle();
+    await _goToWizard(tester, 1);
+    expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Never repeat'))
+            .selected,
+        isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
       'wizard validates, retains drafts on Back, and saves only after review',
       (tester) async {
     final prefs = await _pump(tester, []);

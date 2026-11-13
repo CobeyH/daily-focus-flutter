@@ -1,6 +1,7 @@
 import '../utils/dates.dart';
 import 'task.dart';
 import 'day_slots.dart';
+import 'schedule.dart';
 import 'task_entry.dart';
 
 enum OccurrenceStatus {
@@ -83,6 +84,13 @@ TaskOccurrence? currentOccurrence(
   final today = dateOnly(now);
   TaskOccurrence at(DateTime day) => TaskOccurrence(
       task, day, entryFor(entries, task.id, dateKey(day)), now, slots);
+  if (task.schedule case ScheduleOnce(:final dueDate)) {
+    final candidate = at(dateOnly(dueDate));
+    if ((candidate.done || candidate.skipped) && !candidate.completedToday) {
+      return null;
+    }
+    return candidate;
+  }
   DateTime? last = task.schedule.lastDueDateOnOrBefore(today);
   if (last != null && last.isBefore(start)) last = null;
 

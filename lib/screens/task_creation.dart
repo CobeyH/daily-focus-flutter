@@ -222,7 +222,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
       _section(
           'Make it yours',
           'A small action you want to make room for.',
-          Column(children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             TextFormField(
                 controller: _name,
                 textCapitalization: TextCapitalization.sentences,
@@ -265,7 +265,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
                 initial: _schedule,
                 onChanged: (value) => setState(() => _schedule = value)),
             const SizedBox(height: 16),
-            Text('Next due dates',
+            Text(_schedule is ScheduleOnce ? 'Due date' : 'Next due dates',
                 style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 6, children: [

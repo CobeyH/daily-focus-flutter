@@ -41,6 +41,11 @@ sealed class Schedule {
             .toList() ??
         <int>[];
     switch (json['kind']) {
+      case 'once':
+        return ScheduleOnce(
+            dueDate: DateTime.tryParse(json['dueDate'] as String? ?? '') ??
+                first ??
+                DateTime(1970));
       case 'interval':
         return ScheduleInterval(
             period:
@@ -58,6 +63,29 @@ sealed class Schedule {
         return const ScheduleDaily();
     }
   }
+}
+
+class ScheduleOnce extends Schedule {
+  final DateTime dueDate;
+  const ScheduleOnce({required this.dueDate});
+  @override
+  DateTime get startsOn => dateOnly(dueDate);
+  @override
+  bool isDueOn(DateTime day) => dateOnly(day) == startsOn;
+  @override
+  DateTime? firstDueDateFrom(DateTime from) =>
+      dateOnly(from).isAfter(startsOn) ? null : startsOn;
+  @override
+  DateTime? nextDueDateAfter(DateTime from) =>
+      dateOnly(from).isBefore(startsOn) ? startsOn : null;
+  @override
+  DateTime? lastDueDateOnOrBefore(DateTime day) =>
+      dateOnly(day).isBefore(startsOn) ? null : startsOn;
+  @override
+  String describe() => 'Never repeats';
+  @override
+  Map<String, dynamic> toJson() =>
+      {'kind': 'once', 'dueDate': startsOn.toIso8601String()};
 }
 
 class ScheduleDaily extends Schedule {

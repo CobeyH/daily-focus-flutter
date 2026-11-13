@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import '../models/schedule.dart';
 
 /// The kind of schedule the user is currently configuring. The picker
-/// switches between these three modes and configures a [Schedule] accordingly.
-enum _ScheduleMode { daily, interval, weekly }
+/// switches between these modes and configures a [Schedule] accordingly.
+enum _ScheduleMode { once, daily, interval, weekly }
 
 /// A self-contained picker for the schedule of a task.
 ///
 /// Lets the user choose between:
 ///
+/// * Never repeat (one occurrence with a due date).
 /// * Daily (every day — the default).
 /// * Interval (every N days/weeks/months, with optional first-due date).
 /// * Weekly (specific weekdays, optionally every Nth week).
@@ -40,7 +41,14 @@ class _SchedulePickerState extends State<SchedulePicker> {
     super.initState();
     final s = widget.initial;
     _firstDueDate = null;
-    if (s is ScheduleDaily) {
+    if (s is ScheduleOnce) {
+      _mode = _ScheduleMode.once;
+      _firstDueDate = s.dueDate;
+      _intervalN = 1;
+      _intervalPeriod = SchedulePeriod.day;
+      _weeklyN = 1;
+      _weeklyDays = {};
+    } else if (s is ScheduleDaily) {
       _mode = _ScheduleMode.daily;
       _intervalN = 1;
       _intervalPeriod = SchedulePeriod.day;
@@ -80,6 +88,8 @@ class _SchedulePickerState extends State<SchedulePicker> {
 
   Schedule _buildSchedule() {
     switch (_mode) {
+      case _ScheduleMode.once:
+        return ScheduleOnce(dueDate: _firstDueDate ?? DateTime.now());
       case _ScheduleMode.daily:
         return const ScheduleDaily();
       case _ScheduleMode.interval:
@@ -111,6 +121,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
           for (final mode in _ScheduleMode.values)
             ChoiceChip(
                 label: Text(switch (mode) {
+                  _ScheduleMode.once => 'Never repeat',
                   _ScheduleMode.daily => 'Daily',
                   _ScheduleMode.interval => 'Interval',
                   _ScheduleMode.weekly => 'Weekdays'
@@ -132,6 +143,15 @@ class _SchedulePickerState extends State<SchedulePicker> {
                 }),
         ]),
         const SizedBox(height: 16),
+        if (_mode == _ScheduleMode.once)
+          _FirstDueDateField(
+              value: _firstDueDate,
+              label: 'Due date',
+              helper: 'Happens once. No new occurrence after completion.',
+              onChanged: (date) {
+                setState(() => _firstDueDate = date);
+                _emit();
+              }),
         if (_mode == _ScheduleMode.daily) _buildDaily(),
         if (_mode == _ScheduleMode.interval) _buildInterval(),
         if (_mode == _ScheduleMode.weekly) _buildWeekly(),
@@ -354,11 +374,13 @@ class _FirstDueDateField extends StatelessWidget {
   final DateTime? value;
   final ValueChanged<DateTime> onChanged;
   final String helper;
+  final String label;
 
   const _FirstDueDateField({
     required this.value,
     required this.onChanged,
     this.helper = 'When the task is first due.',
+    this.label = 'First due',
   });
 
   @override
@@ -378,7 +400,7 @@ class _FirstDueDateField extends StatelessWidget {
       },
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: 'First due',
+          labelText: label,
           helperText: helper,
           helperMaxLines: 3,
           border: const OutlineInputBorder(),

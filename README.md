@@ -9,6 +9,10 @@ Create a task, or choose **Task options → Edit task**. The wizard walks throug
 Task, Repeat, Visibility, Deadline, Appearance, and Review. Back keeps your draft;
 nothing is saved until the final confirmation.
 
+In Repeat, choose **Never repeat** and a due date for a one-off task. It supports
+the same visibility and grace settings as recurring tasks. Completion is recorded
+once in history and never schedules another occurrence.
+
 - **Time slots** (sliders button on the home screen): set Morning, Afternoon, and
   Evening starts. Defaults are 06:00, 12:00, and 18:00, in device local time.
   These app-wide preferences persist on this device. Tasks store a slot reference,
