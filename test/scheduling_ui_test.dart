@@ -60,7 +60,65 @@ Future<SharedPreferences> _pump(WidgetTester tester, List<Task> tasks,
   return prefs;
 }
 
+Future<void> _goToWizard(WidgetTester tester, int step) async {
+  for (var i = 0;
+      i < 5 && find.byKey(ValueKey('wizard-step-$step')).evaluate().isEmpty;
+      i++) {
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+  }
+  expect(find.byKey(ValueKey('wizard-step-$step')), findsOneWidget);
+}
+
+Future<void> _saveWizard(WidgetTester tester) async {
+  await _goToWizard(tester, 4);
+  await tester.tap(find.text('Save changes'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  testWidgets(
+      'wizard validates, retains drafts on Back, and saves only after review',
+      (tester) async {
+    final prefs = await _pump(tester, []);
+    await tester.tap(find.text('New task'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('wizard-step-0')), findsOneWidget);
+    expect(find.textContaining('Give your task a name.'), findsWidgets);
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Task name'), 'Walk outside');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Times per occurrence'), '3');
+    await _goToWizard(tester, 1);
+    expect(AppStorage(prefs).loadTasks(), isEmpty);
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Walk outside'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    await _goToWizard(tester, 4);
+    expect(find.textContaining('Walk outside'), findsOneWidget);
+    expect(AppStorage(prefs).loadTasks(), isEmpty);
+    await tester.tap(find.text('Create task'));
+    await tester.pumpAndSettle();
+    expect(AppStorage(prefs).loadTasks().single.name, 'Walk outside');
+    expect(AppStorage(prefs).loadTasks().single.goal, 3);
+    expect(find.textContaining('in a row'), findsNothing);
+  });
+
+  testWidgets('canceling a new task leaves storage unchanged', (tester) async {
+    final prefs = await _pump(tester, []);
+    await tester.tap(find.text('New task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Task name'), 'Discard me');
+    await tester.tap(find.byTooltip('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCreationScreen), findsNothing);
+    expect(AppStorage(prefs).loadTasks(), isEmpty);
+  });
+
   testWidgets('home keeps the date in the app bar and starts with task filters',
       (tester) async {
     await _pump(tester, [_task()], width: 320, scale: 1.5);
@@ -85,13 +143,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit task'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('choose-task-icon')), 250,
-        scrollable: find
-            .descendant(
-                of: find.byKey(const ValueKey('task-editor-scroll')),
-                matching: find.byType(Scrollable))
-            .first);
+    await _goToWizard(tester, 3);
+    await tester.ensureVisible(find.byKey(const ValueKey('choose-task-icon')));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('choose-task-icon')));
     await tester.pumpAndSettle();
@@ -102,10 +156,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Laundry'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Save'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await _saveWizard(tester);
     expect(AppStorage(prefs).loadTasks().single.icon,
         Icons.local_laundry_service.codePoint);
     expect(find.byIcon(Icons.local_laundry_service), findsOneWidget);
@@ -113,13 +164,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit task'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('choose-task-icon')), 250,
-        scrollable: find
-            .descendant(
-                of: find.byKey(const ValueKey('task-editor-scroll')),
-                matching: find.byType(Scrollable))
-            .first);
+    await _goToWizard(tester, 3);
+    await tester.ensureVisible(find.byKey(const ValueKey('choose-task-icon')));
+    await tester.pumpAndSettle();
     expect(find.text('Laundry'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -128,13 +175,9 @@ void main() {
     await _pump(tester, [_task()],
         width: 320, scale: 1.5, home: TaskCreationScreen(existing: _task()));
     expect(tester.takeException(), isNull);
-    await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('grace-days')), 200,
-        scrollable: find
-            .descendant(
-                of: find.byKey(const ValueKey('task-editor-scroll')),
-                matching: find.byType(Scrollable))
-            .first);
+    await _goToWizard(tester, 2);
+    await tester.ensureVisible(find.byKey(const ValueKey('grace-days')));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
@@ -168,13 +211,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit task'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('grace-days')), 250,
-        scrollable: find
-            .descendant(
-                of: find.byKey(const ValueKey('task-editor-scroll')),
-                matching: find.byType(Scrollable))
-            .first);
+    await _goToWizard(tester, 2);
+    await tester.ensureVisible(find.byKey(const ValueKey('grace-days')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('grace-days')));
     await tester.pumpAndSettle();
     expect(find.text('Up to 2 days late'), findsOneWidget);
@@ -201,8 +240,7 @@ void main() {
     await tester.enterText(inputs.at(1), '30');
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await _saveWizard(tester);
     final saved = AppStorage(prefs).loadTasks().single;
     expect(saved.timing.graceDays, 3);
     expect(saved.timing.showDaysBefore, 1);

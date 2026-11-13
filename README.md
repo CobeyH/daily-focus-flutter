@@ -5,7 +5,9 @@ SharedPreferences for immediate local access and syncs to Firebase when signed i
 
 ## Task scheduling
 
-Create a task, or choose **Task options → Edit task**, then open **Timing & flexibility**:
+Create a task, or choose **Task options → Edit task**. The wizard walks through
+Task, Repeat, Timing, Appearance, and Review. Back keeps your draft; nothing is
+saved until the final confirmation. Appearance and grace settings are on Timing:
 
 - **Show in Today**: the due day or up to 30 days earlier, with an appearance time.
 - **Due time**: a specific local time, or end of day.

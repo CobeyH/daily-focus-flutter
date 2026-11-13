@@ -40,7 +40,6 @@ class TaskCard extends ConsumerWidget {
             ? (1 - remaining.inMilliseconds / (task.goal * 1000))
                 .clamp(0.0, 1.0)
             : (current.progress / task.goal).clamp(0.0, 1.0);
-    final streak = ref.watch(taskStreakProvider(task));
     final statusColor = switch (current.status) {
       OccurrenceStatus.overdue => colors.error,
       OccurrenceStatus.grace => colors.tertiary,
@@ -223,11 +222,6 @@ class TaskCard extends ConsumerWidget {
                             : '${current.progress} / ${task.goal} completed',
                         style: text.bodySmall
                             ?.copyWith(color: colors.onSurfaceVariant)),
-                    if (streak > 0)
-                      Text(
-                          '$streak ${task.schedule.describe() == 'Every day' ? 'day' : 'completion'}${streak == 1 ? '' : 's'} in a row',
-                          style:
-                              text.bodySmall?.copyWith(color: colors.primary)),
                   ]),
             ])));
   }
