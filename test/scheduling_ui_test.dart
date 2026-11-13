@@ -61,6 +61,23 @@ Future<SharedPreferences> _pump(WidgetTester tester, List<Task> tasks,
 }
 
 void main() {
+  testWidgets('home keeps the date in the app bar and starts with task filters',
+      (tester) async {
+    await _pump(tester, [_task()], width: 320, scale: 1.5);
+    expect(
+        find.descendant(of: find.byType(AppBar), matching: find.text('Oct 29')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(AppBar), matching: find.text('Thursday')),
+        findsOneWidget);
+    expect(find.textContaining('A little progress'), findsNothing);
+    expect(find.textContaining('ready for your attention'), findsNothing);
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Weekly review'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('chosen library icon survives saving and reopening the editor',
       (tester) async {
     final prefs = await _pump(tester, [_task()]);

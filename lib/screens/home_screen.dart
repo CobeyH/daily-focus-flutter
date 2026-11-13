@@ -67,12 +67,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final completed = occurrences.where((o) => o.done || o.skipped).toList();
     return Scaffold(
       appBar: AppBar(
-          title: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.spa_outlined, color: colors.primary),
-            const SizedBox(width: 10),
-            const Flexible(
-                child: Text('Daily Focus',
-                    maxLines: 1, overflow: TextOverflow.ellipsis))
+          toolbarHeight: MediaQuery.textScalerOf(context).scale(42) + 16,
+          title:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(shortDate(now), style: text.titleLarge),
+            Text(
+                const [
+                  'Monday',
+                  'Tuesday',
+                  'Wednesday',
+                  'Thursday',
+                  'Friday',
+                  'Saturday',
+                  'Sunday'
+                ][now.weekday - 1],
+                style:
+                    text.labelMedium?.copyWith(color: colors.onSurfaceVariant)),
           ]),
           actions: [
             IconButton(
@@ -96,35 +106,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
               child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 112),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
                   children: [
-                    Text(
-                        '${const [
-                          'Monday',
-                          'Tuesday',
-                          'Wednesday',
-                          'Thursday',
-                          'Friday',
-                          'Saturday',
-                          'Sunday'
-                        ][now.weekday - 1]}, ${shortDate(now)}',
-                        style:
-                            text.labelLarge?.copyWith(color: colors.primary)),
-                    const SizedBox(height: 8),
-                    Text('A little progress,\nevery day.',
-                        style: text.headlineMedium),
-                    const SizedBox(height: 12),
-                    Text(
-                        _view == 'Today'
-                            ? pending.isEmpty
-                                ? 'Room to breathe. Your day is clear.'
-                                : '${pending.length} task${pending.length == 1 ? '' : 's'} ready for your attention.'
-                            : _view == 'Upcoming'
-                                ? 'A little space to plan ahead.'
-                                : 'Your routines, all in one place.',
-                        style: text.bodyMedium
-                            ?.copyWith(color: colors.onSurfaceVariant)),
-                    const SizedBox(height: 24),
                     Wrap(spacing: 8, runSpacing: 8, children: [
                       for (final view in ['Today', 'Upcoming', 'All'])
                         ChoiceChip(
