@@ -52,16 +52,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
-  Offset? _center(GlobalKey? key) {
+  Rect? _bounds(GlobalKey? key) {
     final box = key?.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return null;
-    return box.localToGlobal(box.size.center(Offset.zero));
+    return box.localToGlobal(Offset.zero) & box.size;
   }
 
   void _completion(TaskCompletionFeedback event) {
     if (!_visibleRoute || MediaQuery.disableAnimationsOf(context)) return;
-    final start = _center(_cardAnchors[event.key]);
-    final end = _center(_forestAnchor);
+    final source = _bounds(_cardAnchors[event.key]);
+    final start = source?.center;
+    final end = _bounds(_forestAnchor)?.center;
     final screen = Offset.zero & MediaQuery.sizeOf(context);
     if (start == null || !screen.contains(start)) {
       if (event.earnedWater) _forestPulse.forward(from: 0);
@@ -75,6 +76,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     flight = OverlayEntry(
         builder: (_) => CompletionWaterFlight(
             start: box.globalToLocal(start),
+            sourceBounds: box.globalToLocal(source!.topLeft) & source.size,
             end: box.globalToLocal(end),
             isVisible: () => _visibleRoute,
             onFinished: () {

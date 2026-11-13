@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:daily_focus/models/task.dart';
 import 'package:daily_focus/providers/app_controller.dart';
 import 'package:daily_focus/providers/clock_provider.dart';
@@ -46,9 +48,69 @@ Future<ProviderContainer> _pump(WidgetTester tester, Task task,
   return ProviderScope.containerOf(tester.element(find.byType(HomeScreen)));
 }
 
+Future<({int pieces, Rect bounds, Offset center})> _rasterDroplets(
+    WidgetTester tester) async {
+  final finder = find.byKey(const ValueKey('completion-droplets'));
+  final painter = tester.widget<CustomPaint>(finder).painter!;
+  final size = tester.getSize(finder);
+  return (await tester.runAsync(() async {
+    final recorder = ui.PictureRecorder();
+    painter.paint(Canvas(recorder), size);
+    final picture = recorder.endRecording();
+    final width = size.width.ceil(), height = size.height.ceil();
+    final image = await picture.toImage(width, height);
+    final pixels = (await image.toByteData())!;
+    final mask = Uint8List(width * height);
+    var minX = width, minY = height, maxX = 0, maxY = 0;
+    var xSum = 0.0, ySum = 0.0, weight = 0.0;
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final alpha = pixels.getUint8((y * width + x) * 4 + 3);
+        if (alpha < 30) continue;
+        mask[y * width + x] = 1;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        xSum += x * alpha;
+        ySum += y * alpha;
+        weight += alpha;
+      }
+    }
+    var pieces = 0;
+    for (var i = 0; i < mask.length; i++) {
+      if (mask[i] == 0) continue;
+      pieces++;
+      final pending = [i];
+      mask[i] = 0;
+      while (pending.isNotEmpty) {
+        final at = pending.removeLast();
+        for (final neighbor in [
+          if (at % width > 0) at - 1,
+          if (at % width < width - 1) at + 1,
+          if (at >= width) at - width,
+          if (at < width * (height - 1)) at + width
+        ]) {
+          if (mask[neighbor] == 0) continue;
+          mask[neighbor] = 0;
+          pending.add(neighbor);
+        }
+      }
+    }
+    image.dispose();
+    picture.dispose();
+    return (
+      pieces: pieces,
+      bounds: Rect.fromLTRB(
+          minX.toDouble(), minY.toDouble(), maxX.toDouble(), maxY.toDouble()),
+      center: Offset(xSum / weight, ySum / weight)
+    );
+  }))!;
+}
+
 void main() {
   testWidgets(
-      'card shrinks, water flies to the app-bar forest, and undo cannot award another drop',
+      'card bursts into droplets, converges on the forest, and undo cannot award again',
       (tester) async {
     final container = await _pump(tester, _task());
     final cardBounds = tester.getRect(find.byType(TaskCard));
@@ -67,12 +129,16 @@ void main() {
     expect((flight.end - destination).distance, lessThan(1));
     final initialHeight =
         tester.getSize(find.byType(TaskCompletionExit)).height;
-    final initialDrop = tester.getCenter(find.byIcon(Icons.water_drop_rounded));
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 120));
+    final burst = await _rasterDroplets(tester);
+    expect(burst.pieces, greaterThanOrEqualTo(10));
+    expect(burst.bounds.width, greaterThan(cardBounds.width * .6));
     expect(tester.getSize(find.byType(TaskCompletionExit)).height,
         lessThan(initialHeight));
-    expect(tester.getCenter(find.byIcon(Icons.water_drop_rounded)),
-        isNot(initialDrop));
+    await tester.pump(const Duration(milliseconds: 580));
+    final gathering = await _rasterDroplets(tester);
+    expect((gathering.center - destination).distance,
+        lessThan((burst.center - destination).distance));
     await tester.pumpAndSettle();
     expect(find.byType(TaskCompletionExit), findsNothing);
     expect(find.byType(CompletionWaterFlight), findsNothing);
