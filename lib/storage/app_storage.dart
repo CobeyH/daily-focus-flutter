@@ -1,3 +1,4 @@
+import '../models/forest.dart';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +19,20 @@ class AppStorage {
   final SharedPreferences _prefs;
 
   AppStorage(this._prefs);
+
+  List<ForestEvent> loadForest() {
+    final raw = _prefs.getString('forest_events_v1');
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List)
+        .map((e) => ForestEvent.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<void> saveForest(List<ForestEvent> events) async {
+    final saved = await _prefs.setString(
+        'forest_events_v1', jsonEncode(events.map((e) => e.toJson()).toList()));
+    if (!saved) throw StateError('Could not save your forest.');
+  }
 
   List<Task> loadTasks() {
     final raw = _prefs.getString(_tasksKey);

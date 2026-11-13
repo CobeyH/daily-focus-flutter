@@ -1,3 +1,4 @@
+import 'forest_provider.dart';
 import 'day_slots_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,6 +42,7 @@ final syncCoordinatorProvider = Provider<SyncCoordinator?>((ref) {
     onLocalChanged: () async {
       // The remote merge rewrote the local store; refresh the in-memory state.
       ref.invalidate(appControllerProvider);
+      ref.invalidate(forestProvider);
     },
   );
   ref.onDispose(coordinator.dispose);
@@ -292,6 +294,12 @@ class AppController extends Notifier<AppState> {
         completedGoal: finished ? occurrence.goal : null,
         previousProgress: finished || skipped ? occurrence.progress : null,
         skipped: skipped));
+    if (finished && !skipped) {
+      await ref
+          .read(forestProvider.notifier)
+          .awardCompletion(task.id, occurrence.key);
+    }
+    await _pushLocal();
   }
 
   Future<void> _upsertEntry(TaskEntry entry) async {
@@ -305,7 +313,6 @@ class AppController extends Notifier<AppState> {
     }
     state = AppState(tasks: state.tasks, entries: entries);
     await _storage.saveEntries(entries);
-    await _pushLocal();
   }
 }
 

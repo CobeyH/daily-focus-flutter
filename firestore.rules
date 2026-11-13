@@ -5,6 +5,22 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    match /users/{userId}/forest/{eventId} {
+      function validEvent() {
+        let event = request.resource.data;
+        return event.id == eventId
+          && event.keys().hasOnly(['id', 'kind', 'treeId', 'species'])
+          && ((event.kind == 'reward' && event.keys().hasOnly(['id', 'kind']))
+            || (event.kind == 'plant' && event.species in ['pine', 'birch', 'oak']
+              && event.keys().hasOnly(['id', 'kind', 'species']))
+            || (event.kind == 'water' && event.treeId is string
+              && event.keys().hasOnly(['id', 'kind', 'treeId'])));
+      }
+      allow read: if owns(userId);
+      allow create: if owns(userId) && validEvent();
+      allow update: if owns(userId) && request.resource.data == resource.data;
+    }
+
     match /users/{userId}/tasks/{taskId} {
       allow read, delete: if owns(userId);
       allow create, update: if owns(userId)

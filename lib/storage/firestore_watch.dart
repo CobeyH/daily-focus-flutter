@@ -10,11 +10,12 @@ class FirestoreSnapshotData {
   final List<Map<String, dynamic>> tasks;
   final List<Map<String, dynamic>> entries;
   final List<Map<String, dynamic>> timers;
+  final List<Map<String, dynamic>> forest;
 
-  FirestoreSnapshotData(this.tasks, this.entries, this.timers);
+  FirestoreSnapshotData(this.tasks, this.entries, this.timers, this.forest);
 }
 
-/// A single Firestore Listen RPC for all three user collections. CURRENT and
+/// A single Firestore Listen RPC for the user collections. CURRENT and
 /// read-time markers matter: an empty collection still has an initial snapshot.
 class FirestoreWatch {
   final String projectId;
@@ -44,7 +45,7 @@ class FirestoreWatch {
     final call = _client.listen(requests.stream,
         options:
             CallOptions(metadata: {'google-cloud-resource-prefix': database}));
-    const names = ['tasks', 'entries', 'active_timers'];
+    const names = ['tasks', 'entries', 'active_timers', 'forest'];
     final data = {
       for (var id = 1; id <= names.length; id++)
         id: <String, Map<String, dynamic>>{}
@@ -99,8 +100,11 @@ class FirestoreWatch {
             }
           }
           if (current.length == names.length && change.hasReadTime()) {
-            yield FirestoreSnapshotData(data[1]!.values.toList(),
-                data[2]!.values.toList(), data[3]!.values.toList());
+            yield FirestoreSnapshotData(
+                data[1]!.values.toList(),
+                data[2]!.values.toList(),
+                data[3]!.values.toList(),
+                data[4]!.values.toList());
           }
         }
       }

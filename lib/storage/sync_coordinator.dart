@@ -130,6 +130,7 @@ class SyncCoordinator {
     if (_signedOut) return;
     await _remote.push(
       snapshot: RemoteSnapshot(
+        forest: _local.loadForest(),
         tasks: _local.loadTasks(),
         entries: _local.loadEntries(),
         timers: _local.loadActiveTimers(),
@@ -249,7 +250,16 @@ class SyncCoordinator {
         }
       }
 
-      final changed = jsonEncode(localTasks.map((t) => t.toJson()).toList()) !=
+      final localForest = _local.loadForest();
+      final forestById = {
+        for (final event in snapshot.forest) event.id: event,
+        for (final event in localForest) event.id: event
+      };
+      final mergedForest = forestById.values.toList()
+        ..sort((a, b) => a.id.compareTo(b.id));
+      final changed = jsonEncode(localForest.map((e) => e.toJson()).toList()) !=
+              jsonEncode(mergedForest.map((e) => e.toJson()).toList()) ||
+          jsonEncode(localTasks.map((t) => t.toJson()).toList()) !=
               jsonEncode(mergedTasks.map((t) => t.toJson()).toList()) ||
           jsonEncode(localEntries.map((e) => e.toJson()).toList()) !=
               jsonEncode(mergedEntries.map((e) => e.toJson()).toList()) ||
@@ -260,6 +270,7 @@ class SyncCoordinator {
       await _local.saveTasks(mergedTasks);
       await _local.saveEntries(mergedEntries);
       await _local.saveActiveTimers(mergedTimers);
+      await _local.saveForest(mergedForest);
 
       // Notify the UI so in-memory state reflects the merged data.
       await _onLocalChanged?.call();

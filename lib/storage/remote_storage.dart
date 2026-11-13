@@ -1,3 +1,4 @@
+import '../models/forest.dart';
 import 'dart:async';
 
 import '../models/active_timer.dart';
@@ -7,11 +8,13 @@ import '../models/task_entry.dart';
 /// A complete snapshot of a user's data, used to reconcile local and remote
 /// state during a sync.
 class RemoteSnapshot {
+  final List<ForestEvent> forest;
   final List<Task> tasks;
   final List<TaskEntry> entries;
   final List<ActiveTimer> timers;
 
   const RemoteSnapshot({
+    this.forest = const [],
     required this.tasks,
     required this.entries,
     required this.timers,

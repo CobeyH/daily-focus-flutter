@@ -1,3 +1,4 @@
+import 'package:daily_focus/models/forest.dart';
 import 'dart:convert';
 
 import 'package:daily_focus/models/active_timer.dart';
@@ -210,6 +211,37 @@ void main() {
       expect(restored.entries.single.progress, 1);
       expect(restored.entries.single.isComplete(restored.tasks.single.goal),
           isFalse);
+    });
+
+    test('forest rewards sync once, preserve actions, and stay private',
+        () async {
+      const earned = ForestEvent(id: 'reward_task_2026-11-13', kind: 'reward');
+      const watered =
+          ForestEvent(id: 'water_1', kind: 'water', treeId: 'starter');
+      final observed = second
+          .observeChanges()
+          .firstWhere((s) => s.forest.length == 2)
+          .timeout(const Duration(seconds: 15));
+      final snapshot = RemoteSnapshot(
+          tasks: [], entries: [], timers: [], forest: const [earned, watered]);
+      await first.push(snapshot: snapshot);
+      await first.push(snapshot: snapshot);
+      final received = await observed;
+      expect(ForestState(received.forest).completions, 1);
+      expect(ForestState(received.forest).trees.first.growth, 1);
+      expect((await second.pull()).forest, hasLength(2));
+      final path = 'users/${first.auth.userId}/forest/${earned.id}';
+      await expectLater(
+          otherUser.firestore.document(path).get(), throwsA(anything));
+      await expectLater(otherUser.firestore.document(path).set(earned.toJson()),
+          throwsA(anything));
+      await expectLater(
+          first.firestore
+              .document(path)
+              .set({'id': earned.id, 'kind': 'plant', 'species': 'oak'}),
+          throwsA(anything));
+      await expectLater(
+          first.firestore.document(path).delete(), throwsA(anything));
     });
 
     test('auth listeners receive the current state and sign-out', () async {

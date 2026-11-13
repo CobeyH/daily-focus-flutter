@@ -58,6 +58,23 @@ history is retained without inventing timestamps. Editing timing does not restar
 a running timer. Deadline reminders are not added; timer alerts retain their
 existing platform support.
 
+## Forest rewards
+
+Open the tree button beside Today / Upcoming / All to tend your forest. A pine
+seedling is provided to start. Each new full task completion earns one seed and
+one water, including late completions. Count tasks reward at the goal, timers at
+completion, and multi-step tasks after the last step. Partial progress and skips
+do not reward resources. Undo and task deletion keep earned rewards; completing
+the same task occurrence again never pays twice. Rewards begin with completions
+made after this update. Missed days do not change resources or trees.
+
+Pine costs 3 seeds. Birch unlocks at 5 rewarded completions and costs 4 seeds;
+Oak unlocks at 12 and costs 5 seeds. Each tree grows from seedling to young to
+fully grown with two water actions. Unlocks depend on lifetime completions, so
+spending seeds does not lock anything again. Trees and append-only reward,
+planting, and watering actions persist locally and sync to the account's private
+`users/{uid}/forest` collection. Stable reward IDs deduplicate across devices.
+
 ## Firebase backend
 
 The project is `daily-focus-cobey`, on Firebase's free Spark plan. Authentication

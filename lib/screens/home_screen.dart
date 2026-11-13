@@ -1,3 +1,4 @@
+import 'forest_screen.dart';
 import '../providers/day_slots_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,7 +133,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             label: Text(view),
                             selected: _view == view,
                             showCheckmark: false,
-                            onSelected: (_) => setState(() => _view = view))
+                            onSelected: (_) => setState(() => _view = view)),
+                      IconButton.filledTonal(
+                          tooltip: 'Your forest',
+                          icon: const Icon(Icons.park_outlined),
+                          onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const ForestScreen()))),
                     ]),
                     const SizedBox(height: 24),
                     if (_view == 'Today')

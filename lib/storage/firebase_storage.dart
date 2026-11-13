@@ -1,3 +1,4 @@
+import '../models/forest.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -171,8 +172,10 @@ class FirebaseStorage implements RemoteStorage {
   RemoteSnapshot _snapshot(
           List<Map<String, dynamic>> tasks,
           List<Map<String, dynamic>> entries,
-          List<Map<String, dynamic>> timers) =>
+          List<Map<String, dynamic>> timers,
+          List<Map<String, dynamic>> forest) =>
       RemoteSnapshot(
+        forest: forest.map(ForestEvent.fromJson).toList(),
         tasks: tasks.map(Task.fromJson).toList()
           ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
         entries: entries.map(TaskEntry.fromJson).toList(),
@@ -185,11 +188,13 @@ class FirebaseStorage implements RemoteStorage {
       _getAll('tasks'),
       _getAll('entries'),
       _getAll('active_timers'),
+      _getAll('forest'),
     ]);
     return _snapshot(
         collections[0].map((d) => d.map).toList(),
         collections[1].map((d) => d.map).toList(),
-        collections[2].map((d) => d.map).toList());
+        collections[2].map((d) => d.map).toList(),
+        collections[3].map((d) => d.map).toList());
   }
 
   static String _entryId(String taskId, String dateKey) => '${taskId}_$dateKey';
@@ -198,6 +203,9 @@ class FirebaseStorage implements RemoteStorage {
   Future<void> push({required RemoteSnapshot snapshot}) async {
     // Stable document IDs make retries idempotent. Existing local data is
     // uploaded after the first Firebase sign-in without changing its format.
+    for (final event in snapshot.forest) {
+      await _collection('forest').document(event.id).set(event.toJson());
+    }
     for (final task in snapshot.tasks) {
       await _collection('tasks').document(task.id).set(task.toJson());
     }
@@ -246,7 +254,8 @@ class FirebaseStorage implements RemoteStorage {
     while (!_disposed && isSignedIn && auth.userId == uid) {
       try {
         await for (final snapshot in watch.snapshots(uid)) {
-          yield _snapshot(snapshot.tasks, snapshot.entries, snapshot.timers);
+          yield _snapshot(snapshot.tasks, snapshot.entries, snapshot.timers,
+              snapshot.forest);
         }
       } catch (error) {
         debugPrint('Firebase sync reconnecting: $error');
