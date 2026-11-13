@@ -1,3 +1,5 @@
+import 'completion_feedback_provider.dart';
+import '../models/forest.dart';
 import 'forest_provider.dart';
 import 'day_slots_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -281,7 +283,7 @@ class AppController extends Notifier<AppState> {
     if (previousUpdate != null && !updatedAt.isAfter(previousUpdate)) {
       updatedAt = previousUpdate.add(const Duration(microseconds: 1));
     }
-    await _upsertEntry(TaskEntry(
+    final entry = TaskEntry(
         taskId: task.id,
         dateKey: occurrence.key,
         progress: progress,
@@ -293,7 +295,16 @@ class AppController extends Notifier<AppState> {
         completionTiming: timing,
         completedGoal: finished ? occurrence.goal : null,
         previousProgress: finished || skipped ? occurrence.progress : null,
-        skipped: skipped));
+        skipped: skipped);
+    if (finished && !skipped && !occurrence.done) {
+      final earnedWater = !ref
+          .read(forestProvider)
+          .byId
+          .containsKey(ForestEvent.rewardId(task.id, occurrence.key));
+      ref.read(completionFeedbackProvider.notifier).emit(
+          TaskCompletionFeedback(occurrence, entry, earnedWater: earnedWater));
+    }
+    await _upsertEntry(entry);
     if (finished && !skipped) {
       await ref
           .read(forestProvider.notifier)

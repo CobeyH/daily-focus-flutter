@@ -1,3 +1,5 @@
+import '../providers/completion_feedback_provider.dart';
+import '../widgets/task_completion_animation.dart';
 import 'forest_screen.dart';
 import '../providers/day_slots_provider.dart';
 import 'package:flutter/material.dart';
@@ -18,11 +20,102 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
   String _view = 'Today';
+  final _forestAnchor = GlobalKey();
+  final _cardAnchors = <String, GlobalKey>{};
+  final _departing = <String, TaskCompletionFeedback>{};
+  final _flights = <OverlayEntry>{};
+  late final _forestPulse = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 320));
+  late final _forestScale = TweenSequence<double>([
+    TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 1.2)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 40),
+    TweenSequenceItem(
+        tween: Tween(begin: 1.2, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 60),
+  ]).animate(_forestPulse);
+
+  bool get _visibleRoute =>
+      mounted && ModalRoute.of(context)?.isCurrent == true;
+  @override
+  void dispose() {
+    for (final flight in _flights) {
+      flight.remove();
+      flight.dispose();
+    }
+    _forestPulse.dispose();
+    super.dispose();
+  }
+
+  Offset? _center(GlobalKey? key) {
+    final box = key?.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    return box.localToGlobal(box.size.center(Offset.zero));
+  }
+
+  void _completion(TaskCompletionFeedback event) {
+    if (!_visibleRoute || MediaQuery.disableAnimationsOf(context)) return;
+    final start = _center(_cardAnchors[event.key]);
+    final end = _center(_forestAnchor);
+    final screen = Offset.zero & MediaQuery.sizeOf(context);
+    if (start == null || !screen.contains(start)) {
+      if (event.earnedWater) _forestPulse.forward(from: 0);
+      return;
+    }
+    setState(() => _departing[event.key] = event);
+    if (!event.earnedWater || end == null) return;
+    final overlay = Overlay.of(context);
+    final box = overlay.context.findRenderObject() as RenderBox;
+    late final OverlayEntry flight;
+    flight = OverlayEntry(
+        builder: (_) => CompletionWaterFlight(
+            start: box.globalToLocal(start),
+            end: box.globalToLocal(end),
+            isVisible: () => _visibleRoute,
+            onFinished: () {
+              if (!_flights.remove(flight)) return;
+              flight.remove();
+              flight.dispose();
+              if (_visibleRoute) _forestPulse.forward(from: 0);
+            }));
+    _flights.add(flight);
+    overlay.insert(flight);
+  }
+
+  Widget _pendingCard(TaskOccurrence occurrence) {
+    final id = '${occurrence.task.id}/${occurrence.key}';
+    final event = _departing[id];
+    final card = Padding(
+        key: _cardAnchors.putIfAbsent(id, () => GlobalKey()),
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TaskCard(
+            task: occurrence.task, occurrence: event?.completed ?? occurrence));
+    if (event == null) return card;
+    return TaskCompletionExit(
+        key: ObjectKey(event),
+        onFinished: () {
+          if (mounted && identical(_departing[id], event)) {
+            setState(() => _departing.remove(id));
+          }
+        },
+        child: card);
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(completionFeedbackProvider, (_, next) {
+      if (next != null) _completion(next);
+    });
     final state = ref.watch(appControllerProvider);
+    _departing.removeWhere((_, event) =>
+        !(entryFor(state.entries, event.before.task.id, event.before.key)
+                ?.isComplete(event.before.goal) ??
+            false));
     final now = ref.watch(clockProvider);
     final slots = ref.watch(daySlotsProvider);
     final timers =
@@ -79,12 +172,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .toList()
       ..sort((a, b) => a.appearsAt.compareTo(b.appearsAt));
     final completed = occurrences.where((o) => o.done || o.skipped).toList();
+    final displayedPending = [
+      ...pending,
+      for (final event in _departing.values)
+        if (!pending.any((o) =>
+            o.task.id == event.before.task.id && o.key == event.before.key))
+          event.before
+    ]..sort((a, b) {
+        final compare = rank(a).compareTo(rank(b));
+        return compare == 0 ? a.dueDate.compareTo(b.dueDate) : compare;
+      });
+    final visibleKeys =
+        displayedPending.map((o) => '${o.task.id}/${o.key}').toSet();
+    _cardAnchors.removeWhere((key, _) => !visibleKeys.contains(key));
     return Scaffold(
       appBar: AppBar(
           toolbarHeight: MediaQuery.textScalerOf(context).scale(42) + 16,
           title:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(shortDate(now), style: text.titleLarge),
+            Text(shortDate(now),
+                style: text.titleLarge,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
             Text(
                 const [
                   'Monday',
@@ -95,6 +204,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   'Saturday',
                   'Sunday'
                 ][now.weekday - 1],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style:
                     text.labelMedium?.copyWith(color: colors.onSurfaceVariant)),
           ]),
@@ -109,6 +220,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const StreakScreen())),
                 icon: const Icon(Icons.calendar_month_outlined)),
+            ScaleTransition(
+                scale: _forestScale,
+                child: IconButton.filledTonal(
+                    key: _forestAnchor,
+                    tooltip: 'Your forest',
+                    icon: const Icon(Icons.park_outlined),
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ForestScreen())))),
             if (ref.watch(syncCoordinatorProvider) != null)
               PopupMenuButton<String>(
                   tooltip: 'Account',
@@ -134,19 +254,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             selected: _view == view,
                             showCheckmark: false,
                             onSelected: (_) => setState(() => _view = view)),
-                      IconButton.filledTonal(
-                          tooltip: 'Your forest',
-                          icon: const Icon(Icons.park_outlined),
-                          onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const ForestScreen()))),
                     ]),
                     const SizedBox(height: 24),
                     if (_view == 'Today')
                       Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Text('Tasks', style: text.titleLarge)),
-                    if (pending.isEmpty)
+                    if (displayedPending.isEmpty)
                       Card(
                           child: Padding(
                               padding: const EdgeInsets.all(28),
@@ -176,14 +290,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     style: text.bodyMedium?.copyWith(
                                         color: colors.onSurfaceVariant)),
                               ]))),
-                    for (final occurrence in pending)
-                      Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: TaskCard(
-                              key: ValueKey(
-                                  '${occurrence.task.id}/${occurrence.key}'),
-                              task: occurrence.task,
-                              occurrence: occurrence)),
+                    for (final occurrence in displayedPending)
+                      _pendingCard(occurrence),
                     if (_view == 'Today' && upcomingToday.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       Text('Upcoming tasks', style: text.titleLarge),

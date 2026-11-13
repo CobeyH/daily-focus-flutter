@@ -60,13 +60,18 @@ existing platform support.
 
 ## Forest rewards
 
-Open the tree button beside Today / Upcoming / All to tend your forest. A pine
+Open the tree button in the app bar to tend your forest. A pine
 seedling is provided to start. Each new full task completion earns one seed and
 one water, including late completions. Count tasks reward at the goal, timers at
 completion, and multi-step tasks after the last step. Partial progress and skips
 do not reward resources. Undo and task deletion keep earned rewards; completing
 the same task occurrence again never pays twice. Rewards begin with completions
 made after this update. Missed days do not change resources or trees.
+
+A newly completed task fades and shrinks out of the list while a water drop
+travels to the forest button and the button pulses. Partial progress and skips
+do not trigger the effect. Re-completing an undone occurrence removes the card
+without another reward drop. Device reduced-motion settings disable the effect.
 
 Pine costs 3 seeds. Birch unlocks at 5 rewarded completions and costs 4 seeds;
 Oak unlocks at 12 and costs 5 seeds. Each tree grows from seedling to young to
