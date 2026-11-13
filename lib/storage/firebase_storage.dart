@@ -148,6 +148,9 @@ class FirebaseStorage implements RemoteStorage {
   @override
   Future<void> signOut() async {
     auth.signOut();
+    final watch = _watch;
+    _watch = null;
+    watch?.close().ignore();
     await _persist();
   }
 

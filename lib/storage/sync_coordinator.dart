@@ -33,6 +33,8 @@ class SyncCoordinator {
   /// When true, an inbound-merge is in progress, so callers don't re-echo their
   /// own changes.
   bool _merging = false;
+  bool _signedOut = false;
+  int _sessionGeneration = 0;
 
   SyncCoordinator(this._local, this._remote,
       {Future<void> Function()? onLocalChanged})
@@ -81,39 +83,51 @@ class SyncCoordinator {
 
   /// Signs out. Stops observing remote changes for the current user.
   Future<void> signOut() async {
-    await _sub?.cancel();
+    _signedOut = true;
+    _sessionGeneration++;
+    // Network stream cleanup must not delay clearing the local session.
+    _sub?.cancel().ignore();
     _sub = null;
     await _remote.signOut();
   }
 
   /// Merge the account with local data before uploading and observing changes.
   Future<void> _afterAuthenticated() async {
+    _signedOut = false;
+    final generation = ++_sessionGeneration;
     // Merge first so signing in on an older device cannot overwrite newer edits.
     await pullAndMerge();
+    if (_signedOut || generation != _sessionGeneration) return;
     await pushLocal();
     // 3) Subscribe to future changes from other devices.
-    startObserving();
+    if (generation == _sessionGeneration) startObserving();
   }
 
   /// If the user already has a session (e.g. persisted from a previous sign-in
   /// on this device), sync immediately — without forcing an anonymous account.
   /// Otherwise does nothing; the auth screen shown by the app handles sign-in.
   Future<void> syncIfSignedIn() async {
-    if (!_remote.isSignedIn) return;
+    if (_signedOut || !_remote.isSignedIn) return;
+    final generation = _sessionGeneration;
     await pullAndMerge();
+    if (_signedOut || generation != _sessionGeneration) return;
     await pushLocal();
-    startObserving();
+    if (generation == _sessionGeneration) startObserving();
   }
 
   /// Pulls remote state and merges it into the local store. Safe to call
   /// multiple times.
   Future<void> pullAndMerge() async {
+    if (_signedOut) return;
+    final generation = _sessionGeneration;
     final snapshot = await _remote.pull();
+    if (_signedOut || generation != _sessionGeneration) return;
     await _mergeRemoteIntoLocal(snapshot);
   }
 
   /// Pushes the current local state to the remote.
   Future<void> pushLocal() async {
+    if (_signedOut) return;
     await _remote.push(
       snapshot: RemoteSnapshot(
         tasks: _local.loadTasks(),
@@ -131,14 +145,20 @@ class SyncCoordinator {
   /// Starts observing remote changes and merging them in. Call once after
   /// sign-in.
   void startObserving() {
-    _sub?.cancel();
+    if (_signedOut || !_remote.isSignedIn) return;
+    final generation = _sessionGeneration;
+    _sub?.cancel().ignore();
     _sub = _remote.observeChanges().listen((snapshot) async {
+      if (_signedOut || generation != _sessionGeneration) return;
       await _mergeRemoteIntoLocal(snapshot);
     });
   }
 
   Future<void> dispose() async {
-    await _sub?.cancel();
+    _signedOut = true;
+    _sessionGeneration++;
+    _sub?.cancel().ignore();
+    _sub = null;
   }
 
   /// Merges [snapshot] into the local store. Only overrides local rows that are

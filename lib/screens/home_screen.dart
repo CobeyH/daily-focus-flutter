@@ -205,19 +205,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _signOut(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-                title: const Text('Sign out?'),
-                content: const Text('Your tasks will stay on this device.'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Sign out'))
-                ]));
-    if (confirmed == true) await ref.read(syncCoordinatorProvider)?.signOut();
+    try {
+      await ref.read(syncCoordinatorProvider)?.signOut();
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not finish signing out. Please try again.')));
+    }
   }
 }
