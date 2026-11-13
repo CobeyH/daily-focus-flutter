@@ -173,7 +173,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             dateKey(o.appearsAt) == dateKey(now))
         .toList()
       ..sort((a, b) => a.appearsAt.compareTo(b.appearsAt));
-    final completed = occurrences.where((o) => o.done || o.skipped).toList();
+    final completed = occurrences
+        .where((o) =>
+            (o.done || o.skipped) &&
+            !_departing.containsKey('${o.task.id}/${o.key}'))
+        .toList();
     final displayedPending = [
       ...pending,
       for (final event in _departing.values)
@@ -187,6 +191,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final visibleKeys =
         displayedPending.map((o) => '${o.task.id}/${o.key}').toSet();
     _cardAnchors.removeWhere((key, _) => !visibleKeys.contains(key));
+    final pendingContents =
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final occurrence in displayedPending) _pendingCard(occurrence),
+    ]);
+    final emptyState = Card(
+        child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(children: [
+              Icon(
+                  state.tasks.isEmpty
+                      ? Icons.add_task_rounded
+                      : Icons.check_circle_outline_rounded,
+                  color: colors.primary,
+                  size: 40),
+              const SizedBox(height: 16),
+              Text(
+                  state.tasks.isEmpty
+                      ? 'No tasks yet'
+                      : _view == 'Upcoming'
+                          ? 'Nothing coming up'
+                          : 'All clear for today',
+                  style: text.titleMedium),
+              const SizedBox(height: 8),
+              Text(
+                  state.tasks.isEmpty
+                      ? 'Start with one small thing you want to do regularly.'
+                      : _view == 'Today'
+                          ? 'Your next tasks will appear when their window opens.'
+                          : 'Adjust a schedule to plan your next occurrence.',
+                  textAlign: TextAlign.center,
+                  style: text.bodyMedium
+                      ?.copyWith(color: colors.onSurfaceVariant)),
+            ])));
     return Scaffold(
       appBar: AppBar(
           toolbarHeight: MediaQuery.textScalerOf(context).scale(42) + 16,
@@ -262,38 +299,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Text('Tasks', style: text.titleLarge)),
-                    if (displayedPending.isEmpty)
-                      Card(
-                          child: Padding(
-                              padding: const EdgeInsets.all(28),
-                              child: Column(children: [
-                                Icon(
-                                    state.tasks.isEmpty
-                                        ? Icons.add_task_rounded
-                                        : Icons.check_circle_outline_rounded,
-                                    color: colors.primary,
-                                    size: 40),
-                                const SizedBox(height: 16),
-                                Text(
-                                    state.tasks.isEmpty
-                                        ? 'No tasks yet'
-                                        : _view == 'Upcoming'
-                                            ? 'Nothing coming up'
-                                            : 'All clear for today',
-                                    style: text.titleMedium),
-                                const SizedBox(height: 8),
-                                Text(
-                                    state.tasks.isEmpty
-                                        ? 'Start with one small thing you want to do regularly.'
-                                        : _view == 'Today'
-                                            ? 'Your next tasks will appear when their window opens.'
-                                            : 'Adjust a schedule to plan your next occurrence.',
-                                    textAlign: TextAlign.center,
-                                    style: text.bodyMedium?.copyWith(
-                                        color: colors.onSurfaceVariant)),
-                              ]))),
-                    for (final occurrence in displayedPending)
-                      _pendingCard(occurrence),
+                    if (MediaQuery.disableAnimationsOf(context))
+                      (pending.isEmpty ? emptyState : pendingContents)
+                    else
+                      AnimatedCrossFade(
+                        key: const ValueKey('tasks-empty-transition'),
+                        duration: const Duration(milliseconds: 380),
+                        reverseDuration: const Duration(milliseconds: 380),
+                        alignment: Alignment.topCenter,
+                        sizeCurve: Curves.easeInOutCubic,
+                        firstCurve: Curves.easeOut,
+                        secondCurve: Curves.easeIn,
+                        crossFadeState: pending.isEmpty
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        firstChild: pendingContents,
+                        secondChild: pending.isEmpty
+                            ? emptyState
+                            : const SizedBox.shrink(),
+                      ),
                     if (_view == 'Today' && upcomingToday.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       Text('Upcoming tasks', style: text.titleLarge),

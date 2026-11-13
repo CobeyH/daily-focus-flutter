@@ -53,19 +53,6 @@ class TaskCard extends ConsumerWidget {
       } else {
         await controller.markComplete(task, occurrenceKey: current.key);
       }
-      if (!context.mounted || task.type == TaskType.multiStep) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${task.name} updated'),
-          action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () {
-                if (task.type != TaskType.minutes) {
-                  controller.decrement(task, occurrenceKey: current.key);
-                } else {
-                  undo();
-                }
-              })));
     }
 
     return Card(

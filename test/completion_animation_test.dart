@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:daily_focus/models/task.dart';
+import 'package:daily_focus/models/task_entry.dart';
 import 'package:daily_focus/providers/app_controller.dart';
 import 'package:daily_focus/providers/clock_provider.dart';
 import 'package:daily_focus/providers/forest_provider.dart';
@@ -14,21 +15,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final _now = DateTime(2026, 11, 13, 13);
-Task _task({int goal = 1, TaskType type = TaskType.count}) => Task(
-    id: 'laundry',
-    name: 'Laundry',
-    type: type,
-    steps: type == TaskType.multiStep ? const ['Wash', 'Dry'] : const [],
-    goal: goal,
-    step: 1,
-    color: 0xff247866,
-    icon: Icons.local_laundry_service.codePoint,
-    createdAt: DateTime(2026, 11, 12));
+Task _task(
+        {String id = 'laundry',
+        int goal = 1,
+        TaskType type = TaskType.count}) =>
+    Task(
+        id: id,
+        name: 'Laundry',
+        type: type,
+        steps: type == TaskType.multiStep ? const ['Wash', 'Dry'] : const [],
+        goal: goal,
+        step: 1,
+        color: 0xff247866,
+        icon: Icons.local_laundry_service.codePoint,
+        createdAt: DateTime(2026, 11, 12));
 Future<ProviderContainer> _pump(WidgetTester tester, Task task,
-    {bool reduced = false}) async {
+    {bool reduced = false,
+    List<Task> additionalTasks = const [],
+    List<TaskEntry> entries = const []}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  await AppStorage(prefs).saveTasks([task]);
+  await AppStorage(prefs).saveTasks([task, ...additionalTasks]);
+  await AppStorage(prefs).saveEntries(entries);
   tester.view.physicalSize = const Size(390, 950);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -109,6 +117,50 @@ Future<({int pieces, Rect bounds, Offset center})> _rasterDroplets(
 }
 
 void main() {
+  testWidgets(
+      'last-task empty state crossfades immediately and completed header does not jump',
+      (tester) async {
+    await _pump(tester, _task(), additionalTasks: [
+      _task(id: 'done')
+    ], entries: [
+      TaskEntry(
+          taskId: 'done',
+          dateKey: '2026-11-13',
+          progress: 1,
+          completedGoal: 1,
+          completedAt: _now),
+    ]);
+    final header = find.textContaining('Completed & skipped (');
+    final initialY = tester.getTopLeft(header).dy;
+    expect(find.text('All clear for today'), findsNothing);
+    await tester.tap(find.text('Complete'));
+    await tester.pump();
+    expect(find.text('All clear for today'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('Completed & skipped (1)'), findsOneWidget);
+    expect(tester.getTopLeft(header).dy, closeTo(initialY, 1));
+    var previousY = initialY;
+    for (var frame = 0; frame < 25; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      final y = tester.getTopLeft(header).dy;
+      expect((y - previousY).abs(), lessThan(20),
+          reason: 'No empty-card insertion jump at frame $frame');
+      previousY = y;
+      if (frame == 5) {
+        final fade = tester.widget<FadeTransition>(find
+            .ancestor(
+                of: find.text('All clear for today'),
+                matching: find.byType(FadeTransition))
+            .first);
+        expect(fade.opacity.value, greaterThan(0));
+        expect(find.text('Completed & skipped (1)'), findsOneWidget);
+      }
+    }
+    expect(find.text('Completed & skipped (2)'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('card bursts again after undo without awarding resources again',
       (tester) async {
     final container = await _pump(tester, _task());
