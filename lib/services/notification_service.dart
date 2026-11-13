@@ -50,7 +50,7 @@ class NotificationService {
     }
 
     const settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      android: AndroidInitializationSettings('ic_stat_focus'),
       macOS: DarwinInitializationSettings(),
       iOS: DarwinInitializationSettings(),
     );

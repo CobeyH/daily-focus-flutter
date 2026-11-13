@@ -132,3 +132,11 @@ set(INSTALL_BUNDLE_APPS_DIR "${CMAKE_INSTALL_PREFIX}/share/applications")
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/runner/daily_focus.desktop"
   DESTINATION "${INSTALL_BUNDLE_APPS_DIR}"
   COMPONENT Runtime)
+
+# Install the same branding used by the Android launcher.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/branding/daily_focus.svg"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/scalable/apps"
+  RENAME "${APPLICATION_ID}.svg" COMPONENT Runtime)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/branding/daily_focus.png"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/512x512/apps"
+  RENAME "${APPLICATION_ID}.png" COMPONENT Runtime)

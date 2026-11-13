@@ -50,14 +50,22 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "daily_focus");
+    gtk_header_bar_set_title(header_bar, "Daily Focus");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "daily_focus");
+    gtk_window_set_title(window, "Daily Focus");
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  // Find bundled icons when launched directly from a Flutter build directory.
+  g_autofree gchar* executable = g_file_read_link("/proc/self/exe", nullptr);
+  if (executable != nullptr) {
+    g_autofree gchar* directory = g_path_get_dirname(executable);
+    g_autofree gchar* icons = g_build_filename(directory, "share", "icons", nullptr);
+    gtk_icon_theme_append_search_path(gtk_icon_theme_get_default(), icons);
+  }
+  gtk_window_set_icon_name(window, APPLICATION_ID);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -146,6 +154,7 @@ MyApplication* my_application_new() {
   // corresponding .desktop file. This ensures better integration by allowing
   // the application to be recognized beyond its binary name.
   g_set_prgname(APPLICATION_ID);
+  g_set_application_name("Daily Focus");
 
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",

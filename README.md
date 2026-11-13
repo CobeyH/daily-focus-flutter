@@ -102,6 +102,13 @@ is no longer used by the app.
 
 ## Development
 
+The display name is **Daily Focus** on Android and Linux. Launcher artwork is
+maintained in `assets/branding/daily_focus.svg`. To regenerate the committed PNG
+sizes and Android foreground/notification vectors, run
+`python3 scripts/generate_branding.py` with ImageMagick installed. Android uses
+adaptive icons with a themed monochrome variant; Linux bundles the SVG and PNG
+under its application ID in the hicolor icon theme.
+
 ```sh
 flutter pub get
 flutter run -d linux

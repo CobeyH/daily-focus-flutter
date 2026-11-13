@@ -1,9 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=Daily Focus
-Comment=A habit and streak tracker
+Comment=Tasks, routines, and flexible schedules
 Exec=daily_focus %U
-Icon=daily_focus
+Icon=com.dailyfocus.daily_focus
 Terminal=false
 Categories=Utility;
 StartupNotify=true
+StartupWMClass=com.dailyfocus.daily_focus
