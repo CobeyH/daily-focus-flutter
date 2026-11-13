@@ -9,10 +9,11 @@ service cloud.firestore {
       function validEvent() {
         let event = request.resource.data;
         return event.id == eventId
-          && event.keys().hasOnly(['id', 'kind', 'treeId', 'species'])
+          && event.keys().hasOnly(['id', 'kind', 'treeId', 'species', 'plot'])
           && ((event.kind == 'reward' && event.keys().hasOnly(['id', 'kind']))
-            || (event.kind == 'plant' && event.species in ['pine', 'birch', 'oak']
-              && event.keys().hasOnly(['id', 'kind', 'species']))
+            || (event.kind == 'plant' && event.species in ['pine', 'birch', 'oak', 'maple', 'willow', 'cedar', 'redwood']
+              && event.keys().hasOnly(['id', 'kind', 'species', 'plot'])
+              && (!('plot' in event) || (event.plot is int && event.plot > 0 && event.plot <= 1000000)))
             || (event.kind == 'water' && event.treeId is string
               && event.keys().hasOnly(['id', 'kind', 'treeId'])));
       }

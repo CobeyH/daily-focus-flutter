@@ -39,7 +39,8 @@ class ForestController extends Notifier<ForestState> {
     }
     final id =
         'plant_${DateTime.now().toUtc().microsecondsSinceEpoch}_${const Uuid().v4()}';
-    await _append(ForestEvent(id: id, kind: 'plant', species: species));
+    await _append(ForestEvent(
+        id: id, kind: 'plant', species: species, plot: state.nextPlot));
     _sync().ignore();
     return id;
   }

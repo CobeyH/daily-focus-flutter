@@ -42,10 +42,19 @@ class _TreePainter extends CustomPainter {
           RRect.fromRectAndRadius(
               const Rect.fromLTWH(46, 48, 9, 60), const Radius.circular(3)),
           paint..color = trunk);
-      if (species == TreeSpecies.pine) {
-        for (var level = 0; level < 3; level++) {
-          final y = 12.0 + level * 22;
-          final width = 22.0 + level * 9;
+      if (species == TreeSpecies.pine ||
+          species == TreeSpecies.cedar ||
+          species == TreeSpecies.redwood) {
+        for (var level = 0;
+            level < (species == TreeSpecies.redwood ? 4 : 3);
+            level++) {
+          final y = (species == TreeSpecies.redwood ? 2.0 : 12.0) +
+              level * (species == TreeSpecies.redwood ? 20 : 22);
+          final width = species == TreeSpecies.redwood
+              ? 14.0 + level * 5
+              : species == TreeSpecies.cedar
+                  ? 27.0 + level * 8
+                  : 22.0 + level * 9;
           final path = Path()
             ..moveTo(50, y)
             ..quadraticBezierTo(46, y + 12, 50 - width, y + 32)
@@ -59,7 +68,7 @@ class _TreePainter extends CustomPainter {
                   const Color(0xFF43896F),
                   const Color(0xFF32745D),
                   const Color(0xFF245B4B)
-                ][level]);
+                ][level % 3]);
         }
       } else if (species == TreeSpecies.birch) {
         canvas.drawOval(const Rect.fromLTWH(22, 9, 58, 75),
@@ -70,16 +79,44 @@ class _TreePainter extends CustomPainter {
           canvas.drawRect(Rect.fromLTWH(47, y, 5, 2),
               paint..color = const Color(0xFF897F66));
         }
+      } else if (species == TreeSpecies.willow) {
+        canvas.drawOval(const Rect.fromLTWH(12, 22, 76, 46),
+            paint..color = const Color(0xFF6BA989));
+        for (var i = 0; i < 5; i++) {
+          final x = 14.0 + i * 14;
+          final leaves = Path()
+            ..moveTo(x, 45)
+            ..quadraticBezierTo(x - 9, 72, x + 2, 92 - (i % 2) * 12)
+            ..quadraticBezierTo(x + 14, 73, x + 12, 44)
+            ..close();
+          canvas.drawPath(
+              leaves,
+              paint
+                ..color = i.isEven
+                    ? const Color(0xFF55977A)
+                    : const Color(0xFF83B99B));
+        }
       } else {
         for (final circle in [
           const Offset(27, 56),
           const Offset(69, 53),
           const Offset(48, 33)
         ]) {
-          canvas.drawCircle(circle, 25, paint..color = const Color(0xFF608C50));
+          canvas.drawCircle(
+              circle,
+              25,
+              paint
+                ..color = species == TreeSpecies.maple
+                    ? const Color(0xFFC76840)
+                    : const Color(0xFF608C50));
         }
         canvas.drawCircle(
-            const Offset(38, 36), 22, paint..color = const Color(0xFF82A966));
+            const Offset(38, 36),
+            22,
+            paint
+              ..color = species == TreeSpecies.maple
+                  ? const Color(0xFFE5A34D)
+                  : const Color(0xFF82A966));
       }
     }
     canvas.restore();

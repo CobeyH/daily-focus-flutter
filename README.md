@@ -74,11 +74,27 @@ arrival. Partial progress and skips
 do not trigger the effect. Re-completing an undone occurrence replays the burst
 without earning additional resources. Device reduced-motion settings disable the effect.
 
-Pine costs 3 seeds. Birch unlocks at 5 rewarded completions and costs 4 seeds;
-Oak unlocks at 12 and costs 5 seeds. Each tree grows from seedling to young to
-fully grown with two water actions. Unlocks depend on lifetime completions, so
-spending seeds does not lock anything again. Trees and append-only reward,
-planting, and watering actions persist locally and sync to the account's private
+Each rewarded completion also earns 10 lifetime XP. Levels are permanent, with
+gradually increasing XP requirements, and expand the clearing. Previous forest
+rewards count toward levels automatically. Spending resources does not reduce
+XP or lock a variety again.
+
+| Tree | Unlock level | Seed cost |
+| --- | --- | --- |
+| Pine | 1 | 3 |
+| Birch | 2 | 4 |
+| Oak | 3 | 5 |
+| Maple | 5 | 6 |
+| Willow | 8 | 7 |
+| Cedar | 12 | 9 |
+| Redwood | 16 | 12 |
+
+The forest is one continuous landscape. Drag to explore, pinch or use the zoom
+buttons, and select the overview button to see the whole clearing. Newly planted
+trees receive saved positions; existing trees stay in place as the forest grows.
+Each tree grows from seedling to young to fully grown with two water actions.
+Trees and append-only reward, planting, and watering actions persist locally and
+sync to the account's private
 `users/{uid}/forest` collection. Stable reward IDs deduplicate across devices.
 
 ## Firebase backend

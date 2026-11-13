@@ -218,18 +218,39 @@ void main() {
       const earned = ForestEvent(id: 'reward_task_2026-11-13', kind: 'reward');
       const watered =
           ForestEvent(id: 'water_1', kind: 'water', treeId: 'starter');
+      const planted = ForestEvent(
+          id: 'plant-redwood',
+          kind: 'plant',
+          species: TreeSpecies.redwood,
+          plot: 42);
       final observed = second
           .observeChanges()
-          .firstWhere((s) => s.forest.length == 2)
+          .firstWhere((s) => s.forest.length == 3)
           .timeout(const Duration(seconds: 15));
       final snapshot = RemoteSnapshot(
-          tasks: [], entries: [], timers: [], forest: const [earned, watered]);
+          tasks: [],
+          entries: [],
+          timers: [],
+          forest: const [earned, watered, planted]);
       await first.push(snapshot: snapshot);
       await first.push(snapshot: snapshot);
       final received = await observed;
       expect(ForestState(received.forest).completions, 1);
       expect(ForestState(received.forest).trees.first.growth, 1);
-      expect((await second.pull()).forest, hasLength(2));
+      expect((await second.pull()).forest, hasLength(3));
+      expect(
+          ForestState(received.forest).trees.last.species, TreeSpecies.redwood);
+      expect(ForestState(received.forest).trees.last.plot, 42);
+      await expectLater(
+          first.firestore
+              .document('users/${first.auth.userId}/forest/bad-plot')
+              .set(const ForestEvent(
+                      id: 'bad-plot',
+                      kind: 'plant',
+                      species: TreeSpecies.pine,
+                      plot: 0)
+                  .toJson()),
+          throwsA(anything));
       final path = 'users/${first.auth.userId}/forest/${earned.id}';
       await expectLater(
           otherUser.firestore.document(path).get(), throwsA(anything));
