@@ -284,6 +284,14 @@ void main() {
       final collection = 'users/${first.auth.userId}/forest';
       for (final event in [
         {'id': 'debug-pack', 'kind': 'debugResources'},
+        {'id': 'debug-budget', 'kind': 'debugChoiceBudget'},
+        {
+          'id': 'project_pond',
+          'kind': 'choiceProject',
+          'project': 'pond',
+          'atCompletion': 5
+        },
+        {'id': 'bonus_test', 'kind': 'choiceBonus', 'project': 'pond'},
         {'id': 'project_pond', 'kind': 'project', 'project': 'castle'},
         {'id': 'project_wrong', 'kind': 'project', 'project': 'pond'},
         {'id': 'goal_bad', 'kind': 'goal', 'project': 'pond', 'materials': 999},

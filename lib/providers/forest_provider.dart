@@ -10,12 +10,16 @@ final forestProvider =
 
 class ForestController extends Notifier<ForestState> {
   final bool isSandbox;
+  final bool _resourceChoices;
   final List<ForestEvent> _initial;
   ForestController()
       : isSandbox = false,
+        _resourceChoices = false,
         _initial = const [];
-  ForestController.sandbox(Iterable<ForestEvent> initial)
+  ForestController.sandbox(Iterable<ForestEvent> initial,
+      {bool resourceChoices = false})
       : isSandbox = true,
+        _resourceChoices = resourceChoices,
         _initial = List.of(initial);
   Future<void> _pending = Future.value();
 
@@ -32,15 +36,28 @@ class ForestController extends Notifier<ForestState> {
       if (!kDebugMode) {
         throw StateError('Sandbox is available in debug builds only.');
       }
-      return ForestState(_initial);
+      final completions = ForestState(_initial).completions;
+      return ForestState(
+          _initial.map((e) => _resourceChoices && e.kind == 'project'
+              ? ForestEvent(
+                  id: e.id,
+                  kind: 'choiceProject',
+                  project: e.project,
+                  atCompletion: completions)
+              : e),
+          resourceChoices: _resourceChoices);
     }
     return ForestState(ref.watch(storageProvider).loadForest());
   }
 
-  Future<ForestState?> _append(ForestEvent event) async {
-    if (state.byId.containsKey(event.id)) return null;
+  Future<ForestState?> _append(ForestEvent event) => _appendAll([event]);
+
+  Future<ForestState?> _appendAll(Iterable<ForestEvent> events) async {
+    final added = events.where((e) => !state.byId.containsKey(e.id)).toList();
+    if (added.isEmpty) return null;
     final before = state;
-    final next = ForestState([...state.events, event]);
+    final next = ForestState([...state.events, ...added],
+        resourceChoices: state.resourceChoices);
     state = next;
     try {
       if (!isSandbox) await ref.read(storageProvider).saveForest(next.events);
@@ -54,14 +71,29 @@ class ForestController extends Notifier<ForestState> {
   /// Called only after a new full task completion is recorded locally.
   Future<void> awardCompletion(String taskId, String dateKey) => _run(() async {
         final before = state;
-        final after = await _append(ForestEvent(
-            id: ForestEvent.rewardId(taskId, dateKey), kind: 'reward'));
+        final event = ForestEvent(
+            id: ForestEvent.rewardId(taskId, dateKey), kind: 'reward');
+        final after = await _appendAll(_rewardEvents(state, event));
         if (after != null && ref.mounted) {
           ref
               .read(forestRewardProvider.notifier)
               .emit(ForestReward(before, after));
         }
       });
+
+  List<ForestEvent> _rewardEvents(ForestState forest, ForestEvent reward) {
+    if (forest.byId.containsKey(reward.id)) return [];
+    return [
+      reward,
+      if (forest.resourceChoices)
+        for (final project in forest.projects)
+          if (forest.bonusIn(project) == 1)
+            ForestEvent(
+                id: 'bonus_${reward.id}_${project.name}',
+                kind: 'choiceBonus',
+                project: project),
+    ];
+  }
 
   Future<void> _sync() async {
     if (isSandbox) return;
@@ -106,7 +138,10 @@ class ForestController extends Notifier<ForestState> {
           throw StateError('This project still has requirements to complete.');
         }
         await _append(ForestEvent(
-            id: 'project_${project.name}', kind: 'project', project: project));
+            id: 'project_${project.name}',
+            kind: state.resourceChoices ? 'choiceProject' : 'project',
+            project: project,
+            atCompletion: state.resourceChoices ? state.completions : null));
         _sync().ignore();
       });
 
@@ -128,11 +163,17 @@ class ForestController extends Notifier<ForestState> {
         final target = targetLevel ?? before.level + 1;
         if (target <= before.level || target > 25) return;
         final count = (ForestState.xpForLevel(target) - before.xp) ~/ 10;
-        state = ForestState([
-          ...state.events,
-          for (var i = 0; i < count; i++)
-            ForestEvent(id: 'debug_reward_${const Uuid().v4()}', kind: 'reward')
-        ]);
+        var next = state;
+        for (var i = 0; i < count; i++) {
+          next = ForestState([
+            ...next.events,
+            ..._rewardEvents(
+                next,
+                ForestEvent(
+                    id: 'debug_reward_${const Uuid().v4()}', kind: 'reward'))
+          ], resourceChoices: next.resourceChoices);
+        }
+        state = next;
         ref
             .read(forestRewardProvider.notifier)
             .emit(ForestReward(before, state));
@@ -159,9 +200,23 @@ class ForestController extends Notifier<ForestState> {
         }
       });
 
+  Future<void> debugBalancedStart() => _run(() async {
+        _requireSandbox();
+        ref.read(forestRewardProvider.notifier).clear();
+        state = ForestState([
+          for (var i = 0; i < 5; i++)
+            ForestEvent(id: 'balanced_reward_$i', kind: 'reward'),
+          const ForestEvent(
+              id: 'balanced_water_1', kind: 'water', treeId: 'starter'),
+          const ForestEvent(
+              id: 'balanced_water_2', kind: 'water', treeId: 'starter'),
+          const ForestEvent(id: 'balanced_stock', kind: 'debugChoiceBudget'),
+        ], resourceChoices: true);
+      });
+
   Future<void> debugReset() => _run(() async {
         _requireSandbox();
         ref.read(forestRewardProvider.notifier).clear();
-        state = ForestState([]);
+        state = ForestState([], resourceChoices: state.resourceChoices);
       });
 }

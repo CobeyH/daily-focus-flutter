@@ -225,6 +225,47 @@ storage, call cloud sync, or modify task completion history. Debug controls are
 absent in release/profile builds, and controller guards reject cheats on real
 forests even in debug builds.
 
+### Resource-choice experiment
+
+The debug sandbox opens with an experimental economy; your saved forest keeps
+its original rules while we tune the balance. Use **Sandbox controls → Try a
+balanced start** for 8 seeds, 6 water, 12 materials, and a mature pine. That
+budget affords any one habitat, but spending on one delays the others.
+
+| Habitat | Cost (plus 1 mature tree, which stays) | Automatic income |
+| --- | --- | --- |
+| Nursery | 8 materials, 2 water | +2 materials every 4 new task completions |
+| Songbird haven | 10 materials | +2 seeds every 4 new task completions |
+| Woodland pond | 12 materials, 6 water | +2 water every 4 new task completions; early willow planting |
+
+All three habitats are available together; there is no required purchase order
+or automatic next goal. Pin a goal to see its shortages and relevant tree
+choices. Build, plant, and water previews show what will remain, including any
+shortfall for the pinned project. Habitats collect bonuses automatically on
+new full completions, with a countdown and a source message in XP feedback.
+Buying a habitat never pays income for earlier tasks. Re-completing an undone
+occurrence never pays twice. Use **Simulate a task completion** to test income;
+force-level cheats also advance income correctly.
+
+Experimental tree yields arrive once at maturity, with no harvest button:
+pine gives 4 materials; birch 6 seeds; oak 6 materials; maple 10 seeds; willow
+6 water; cedar 8 materials; redwood 12 materials. Their seed prices and two
+water growth actions remain visible. For example, planting and growing a pine
+uses 3 seeds and 2 water for 4 materials, while birch uses 4 seeds and 2 water
+and returns 6 seeds. Tree artwork still reveals only stages you have grown.
+
+The balanced-start button can be used repeatedly to compare routes. Grants of
+50 resources are still available for free exploration. Experimental budgets,
+project purchase markers, and income events remain in memory; the live owner
+rules reject them, and tests verify that ordinary saves and sync never receive
+them. Promoting these rules to the saved forest will be a separate decision
+after trying the economy.
+
+See the rendered [habitat choices](docs/images/forest-resource-choices-projects.png),
+[pond trade-off](docs/images/forest-resource-choices-pond.png),
+[income feedback](docs/images/forest-resource-choices-income.png), and
+[tree conversions](docs/images/forest-resource-choices-trees.png).
+
 Sanctuary project/goal events sync through the existing owner-only forest
 collection. This PR includes updated Firestore rules and emulator coverage;
 **deploy the rules before shipping project sync**. Live rules are not changed

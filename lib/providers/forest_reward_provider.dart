@@ -5,6 +5,23 @@ class ForestReward {
   final ForestState before, after;
   final int xpGained, beforeLevel, afterLevel;
   final double beforeProgress, afterProgress;
+  late final List<String> habitatBonuses = !after.resourceChoices
+      ? const []
+      : [
+          for (final project in ForestProject.values)
+            if (_bonusCount(project) > 0)
+              '+${_bonusCount(project) * 2} ${switch (project) {
+                ForestProject.nursery => 'materials',
+                ForestProject.birdhouse => 'seeds',
+                ForestProject.pond => 'water'
+              }} from ${project.label}',
+        ];
+  int _bonusCount(ForestProject project) => after.byId.values
+      .where((e) =>
+          e.kind == 'choiceBonus' &&
+          e.project == project &&
+          !before.byId.containsKey(e.id))
+      .length;
   ForestReward(this.before, this.after)
       : xpGained = after.xp - before.xp,
         beforeLevel = before.level,

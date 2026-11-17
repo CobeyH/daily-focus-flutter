@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/forest.dart';
 import '../providers/forest_provider.dart';
+import 'forest_spend_preview.dart';
 
 IconData projectIcon(ForestProject project) => switch (project) {
       ForestProject.nursery => Icons.yard_outlined,
@@ -17,20 +18,31 @@ class ForestProjectSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final project = forest.activeProject;
+    final finished = forest.projects.length == ForestProject.values.length;
+    final plan = project == null ? null : forest.planFor(project);
     return ListTile(
       key: const ValueKey('forest-project-summary'),
       contentPadding: EdgeInsets.zero,
       dense: true,
       leading:
           Icon(project == null ? Icons.park_outlined : projectIcon(project)),
-      title:
-          Text(project == null ? 'Your sanctuary is thriving' : project.label),
+      title: Text(project == null
+          ? (finished
+              ? 'Your sanctuary is thriving'
+              : 'Choose your next project')
+          : project.label),
       subtitle: project == null
-          ? const Text('Birds, frogs, and room to keep growing')
+          ? Text(finished
+              ? 'Birds, frogs, and room to keep growing'
+              : '${forest.materials} materials · choose what to grow next')
           : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(forest.canBuild(project)
                   ? 'Ready to build'
-                  : '${forest.materials} / ${project.materialCost} materials · ${forest.matureTrees} / ${project.matureTrees} mature trees'),
+                  : forest.resourceChoices
+                      ? '${forest.materials} / ${plan!.cost.materials} materials${plan.cost.water > 0 ? ' · ${forest.water} / ${plan.cost.water} water' : ''}'
+                      : '${forest.materials} / ${plan!.cost.materials} materials · ${forest.matureTrees} / ${plan.matureTrees} mature trees'),
+              if (forest.resourceChoices && forest.goalAdvice != null)
+                Text(forest.goalAdvice!),
               const SizedBox(height: 4),
               LinearProgressIndicator(
                   value: forest.projectProgress(project),
@@ -83,10 +95,11 @@ class _ForestProjectsState extends ConsumerState<ForestProjects> {
         children: [
           Text('Build your sanctuary', style: text.headlineSmall),
           const SizedBox(height: 8),
-          Text('${forest.materials} materials · ${forest.water} water'),
+          Text(forest.resources.balance),
           const SizedBox(height: 8),
-          const Text(
-              'Every completed task earns 1 material. Each tree you grow to maturity contributes 3 more. Projects and residents stay forever.'),
+          Text(forest.resourceChoices
+              ? 'Choose a resource path. All three projects are available; they share your materials and water. Bonuses arrive automatically through task completions.'
+              : 'Every completed task earns 1 material. Each tree you grow to maturity contributes 3 more. Projects and residents stay forever.'),
           const SizedBox(height: 12),
           AnimatedSwitcher(
             duration: MediaQuery.disableAnimationsOf(context)
@@ -102,94 +115,99 @@ class _ForestProjectsState extends ConsumerState<ForestProjects> {
                         child: Semantics(
                             liveRegion: true,
                             child: Text(
-                                '${_celebrated!.label} complete!\n${_celebrated!.benefit}',
+                                '${_celebrated!.label} complete!\n${forest.planFor(_celebrated!).benefit}',
                                 style: text.titleMedium)))),
           ),
           if (_error != null)
             Text(_error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
           for (final project in ForestProject.values)
-            Card(
-                key: ValueKey('project-${project.name}'),
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Icon(projectIcon(project)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: Text(project.label,
-                                    style: text.titleMedium)),
-                            if (forest.hasProject(project))
-                              const Icon(Icons.check_circle_outline),
-                          ]),
-                          const SizedBox(height: 8),
-                          Text(project.description),
-                          const SizedBox(height: 8),
-                          Text(project.benefit, style: text.labelLarge),
-                          const SizedBox(height: 12),
-                          if (forest.hasProject(project))
-                            const Text('Established · yours to keep')
-                          else ...[
-                            if (project.prerequisite != null)
-                              _requirement(
-                                  forest.hasProject(project.prerequisite!)
-                                      ? '${project.prerequisite!.label} established'
-                                      : 'Build ${project.prerequisite!.label} first',
-                                  forest.hasProject(project.prerequisite!),
-                                  onTap: forest.hasProject(
-                                              project.prerequisite!) ||
-                                          _busy
-                                      ? null
-                                      : () => _act(() =>
-                                          controller.chooseProject(
-                                              project.prerequisite!))),
-                            _requirement(
-                                '${forest.materials} / ${project.materialCost} materials',
-                                forest.materials >= project.materialCost),
-                            Text(
-                                'Complete tasks and grow mature trees to gather materials.',
-                                style: text.bodySmall),
-                            _requirement(
-                                '${forest.matureTrees} / ${project.matureTrees} mature trees',
-                                forest.matureTrees >= project.matureTrees,
-                                onTap: _busy ? null : widget.onTendTrees),
-                            if (project.waterCost > 0) ...[
-                              _requirement(
-                                  '${forest.water} / ${project.waterCost} water',
-                                  forest.water >= project.waterCost),
-                              Text('Complete tasks to earn water.',
-                                  style: text.bodySmall),
-                            ],
-                            const SizedBox(height: 8),
-                            Wrap(spacing: 8, runSpacing: 4, children: [
-                              FilledButton.icon(
-                                  key: ValueKey('build-${project.name}'),
-                                  onPressed: !_busy && forest.canBuild(project)
-                                      ? () => _act(
-                                          () =>
-                                              controller.buildProject(project),
-                                          built: project)
-                                      : null,
-                                  icon:
-                                      const Icon(Icons.construction, size: 18),
-                                  label: const Text('Build')),
-                              if (forest.activeProject == project)
-                                const Chip(label: Text('Current goal'))
-                              else
-                                TextButton(
-                                    onPressed: _busy
-                                        ? null
-                                        : () => _act(() =>
-                                            controller.chooseProject(project)),
-                                    child: const Text('Make my goal')),
-                            ]),
-                          ],
-                        ]))),
+            _project(forest, project, controller),
         ]);
+  }
+
+  Widget _project(
+      ForestState forest, ForestProject project, ForestController controller) {
+    final plan = forest.planFor(project);
+    final text = Theme.of(context).textTheme;
+    final built = forest.hasProject(project);
+    return Card(
+        key: ValueKey('project-${project.name}'),
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+            padding: const EdgeInsets.all(16),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(projectIcon(project)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(project.label, style: text.titleMedium)),
+                if (built) const Icon(Icons.check_circle_outline),
+              ]),
+              const SizedBox(height: 8),
+              Text(project.description),
+              const SizedBox(height: 8),
+              Text(plan.benefit, style: text.labelLarge),
+              const SizedBox(height: 12),
+              if (built) ...[
+                const Text('Established · yours to keep'),
+                if (forest.resourceChoices)
+                  Text(
+                      'Next +${plan.bonus.yieldLabel} in ${forest.bonusIn(project)} task completions',
+                      key: ValueKey('bonus-${project.name}')),
+              ] else ...[
+                if (plan.prerequisite != null)
+                  _requirement(
+                      forest.hasProject(plan.prerequisite!)
+                          ? '${plan.prerequisite!.label} established'
+                          : 'Build ${plan.prerequisite!.label} first',
+                      forest.hasProject(plan.prerequisite!),
+                      onTap: forest.hasProject(plan.prerequisite!) || _busy
+                          ? null
+                          : () => _act(() =>
+                              controller.chooseProject(plan.prerequisite!))),
+                _requirement(
+                    '${forest.materials} / ${plan.cost.materials} materials',
+                    forest.materials >= plan.cost.materials),
+                _requirement(
+                    '${forest.matureTrees} / ${plan.matureTrees} mature trees',
+                    forest.matureTrees >= plan.matureTrees,
+                    onTap: _busy ? null : widget.onTendTrees),
+                if (plan.cost.water > 0)
+                  _requirement('${forest.water} / ${plan.cost.water} water',
+                      forest.water >= plan.cost.water),
+                if (forest.resourceChoices && forest.canBuild(project))
+                  ForestSpendPreview(
+                      key: ValueKey('preview-${project.name}'),
+                      forest: forest,
+                      remaining: forest.resources - plan.cost,
+                      action: 'building',
+                      building: project),
+                if (forest.resourceChoices && !forest.canBuild(project))
+                  Text('Grow pines for materials; complete tasks for water.',
+                      style: text.bodySmall),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  FilledButton.icon(
+                      key: ValueKey('build-${project.name}'),
+                      onPressed: !_busy && forest.canBuild(project)
+                          ? () => _act(() => controller.buildProject(project),
+                              built: project)
+                          : null,
+                      icon: const Icon(Icons.construction, size: 18),
+                      label: const Text('Build')),
+                  if (forest.activeProject == project)
+                    const Chip(label: Text('Current goal'))
+                  else
+                    TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () =>
+                                _act(() => controller.chooseProject(project)),
+                        child: const Text('Make my goal')),
+                ]),
+              ],
+            ])));
   }
 
   Widget _requirement(String label, bool met, {VoidCallback? onTap}) => InkWell(
@@ -229,6 +247,18 @@ class ForestSandboxControls extends ConsumerWidget {
           'Level ${forest.level} · ${forest.xp} XP\n${forest.seeds} seeds · ${forest.water} water · ${forest.materials} materials'),
       const SizedBox(height: 16),
       FilledButton.icon(
+          key: const ValueKey('balanced-forest-start'),
+          onPressed: () async {
+            await controller.debugBalancedStart();
+            if (context.mounted) Navigator.pop(context);
+          },
+          icon: const Icon(Icons.balance),
+          label: const Text('Try a balanced start')),
+      const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+              'Resource choices: 8 seeds, 6 water, 12 materials, and one mature pine. You can afford any one habitat. Experiment with your next move.')),
+      FilledButton.icon(
           onPressed: controller.debugLevelUp,
           icon: const Icon(Icons.auto_awesome),
           label: const Text('Force next level')),
@@ -250,7 +280,7 @@ class ForestSandboxControls extends ConsumerWidget {
           child: const Text('Reach level 16 · all tree varieties')),
       const SizedBox(height: 16),
       const Text(
-          'Use Plant a tree, Water, and the project panel to try the full progression. Force next level also plays the level-up celebration.'),
+          'Use a balanced start to compare choices. Simulate task completions to test automatic habitat bonuses. Resource grants are available when you want to explore freely.'),
       const SizedBox(height: 24),
       TextButton(
           onPressed: controller.debugReset,

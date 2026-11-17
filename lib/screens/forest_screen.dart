@@ -6,6 +6,7 @@ import '../providers/forest_provider.dart';
 import '../widgets/forest_landscape.dart';
 import '../widgets/forest_tree.dart';
 import '../widgets/forest_projects.dart';
+import '../widgets/forest_spend_preview.dart';
 import '../widgets/forest_reward_overlay.dart';
 import '../providers/forest_reward_provider.dart';
 
@@ -82,8 +83,9 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
         MaterialPageRoute(
             builder: (_) => ProviderScope(
                   overrides: [
-                    forestProvider
-                        .overrideWith(() => ForestController.sandbox(initial)),
+                    forestProvider.overrideWith(() => ForestController.sandbox(
+                        initial,
+                        resourceChoices: true)),
                     forestRewardProvider
                         .overrideWith(ForestRewardController.new),
                   ],
@@ -147,9 +149,9 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
               const SizedBox(height: 24),
               Text('A forest that stays with you', style: text.titleLarge),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                   'Each completed task earns 10 XP, 1 seed, 1 water, and 1 building material. '
-                  'Mature trees contribute 3 extra materials. '
+                  '${forest.resourceChoices ? 'Trees yield different resources at maturity; habitats add bonuses every 4 task completions. ' : 'Mature trees contribute 3 extra materials. '}'
                   'Your clearing expands with your level. Trees, levels, and resources never decay. '
                   'Undo keeps your rewards; the same occurrence never earns twice.'),
               const SizedBox(height: 20),
@@ -166,7 +168,7 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                             forest: forest, species: species)),
                     title: Text(species.label),
                     subtitle: Text(
-                        'Level ${species.unlockLevel}${species == TreeSpecies.willow ? ' or woodland pond' : ''} · ${species.seedCost} seeds'),
+                        'Level ${species.unlockLevel}${species == TreeSpecies.willow ? ' or woodland pond' : ''} · ${species.seedCost} seeds${forest.resourceChoices ? '\nMaturity: +${forest.maturityYield(species).yieldLabel}' : ''}'),
                     trailing: Icon(forest.unlocked(species)
                         ? Icons.check_rounded
                         : Icons.lock_outline)),
@@ -225,8 +227,9 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                         child: TextButton.icon(
                             onPressed: _debug,
                             icon: const Icon(Icons.tune, size: 18),
-                            label:
-                                const Text('Sandbox · temporary progress')))),
+                            label: Text(forest.resourceChoices
+                                ? 'Resource choices · sandbox'
+                                : 'Sandbox · temporary progress')))),
               if (compact)
                 Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -363,6 +366,19 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                           icon: const Icon(Icons.chevron_right)),
                     ],
                   ]),
+                  if (forest.resourceChoices) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                        selected.growth >= 2
+                            ? 'Maturity yield collected: ${forest.maturityYield(selected.species).yieldLabel}'
+                            : 'At maturity: +${forest.maturityYield(selected.species).yieldLabel}',
+                        style: text.bodySmall),
+                    if (selected.growth < 2 && forest.water >= 1)
+                      ForestSpendPreview(
+                          forest: forest,
+                          remaining: forest.afterWatering(selected),
+                          action: 'watering'),
+                  ],
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 8, children: [
                     FilledButton.icon(
@@ -469,6 +485,23 @@ class _NurseryState extends ConsumerState<_Nursery> {
                               ? '${species.seedCost} seeds · 2 water to grow'
                               : 'Unlocks at level ${species.unlockLevel}${species == TreeSpecies.willow ? ' or restore the pond' : ''}',
                           style: text.bodySmall),
+                      if (forest.resourceChoices) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                            'At maturity: +${forest.maturityYield(species).yieldLabel}',
+                            style: text.bodySmall),
+                        if (forest.helpsGoal(species))
+                          Text('Helps your ${forest.activeProject!.label} goal',
+                              style: text.labelSmall?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.primary)),
+                        if (unlocked && forest.seeds >= species.seedCost)
+                          ForestSpendPreview(
+                              forest: forest,
+                              remaining: forest.resources -
+                                  ForestResources(seeds: species.seedCost),
+                              action: 'planting'),
+                      ],
                       const SizedBox(height: 8),
                       FilledButton.icon(
                           onPressed: !_busy &&
