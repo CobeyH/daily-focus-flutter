@@ -21,5 +21,6 @@ final forestRewardProvider =
 class ForestRewardController extends Notifier<ForestReward?> {
   @override
   ForestReward? build() => null;
+  void clear() => state = null;
   void emit(ForestReward reward) => state = reward;
 }

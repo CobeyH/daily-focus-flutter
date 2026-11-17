@@ -86,7 +86,14 @@ class _ForestRewardOverlayState extends ConsumerState<ForestRewardOverlay> {
   @override
   Widget build(BuildContext context) {
     ref.listen(forestRewardProvider, (_, next) {
-      if (next != null) _enqueue(next);
+      if (next != null) {
+        _enqueue(next);
+      } else {
+        setState(() {
+          _current = null;
+          _pending = null;
+        });
+      }
     });
     ref.listen(authStateProvider, (_, next) {
       if (next.value == false && (_current != null || _pending != null)) {
@@ -294,6 +301,14 @@ class _ForestRewardCelebrationState extends State<ForestRewardCelebration>
                             Text(
                                 '${frame.xp} / ${frame.span} XP to level ${frame.level + 1}',
                                 style: text.bodySmall),
+                            if (widget.reward.after.restorationGoals)
+                              Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                      'Earned ${widget.reward.after.balanceFor(widget.reward.after.resources - widget.reward.before.resources)}',
+                                      key: const ValueKey(
+                                          'forest-resource-reward'),
+                                      style: text.bodySmall)),
                             if (frame.levelUp)
                               Padding(
                                   padding: const EdgeInsets.only(top: 4),

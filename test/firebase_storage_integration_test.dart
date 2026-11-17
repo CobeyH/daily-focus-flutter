@@ -265,6 +265,58 @@ void main() {
           first.firestore.document(path).delete(), throwsA(anything));
     });
 
+    test(
+        'sanctuary projects and goals sync privately while cheats and invalid events are rejected',
+        () async {
+      const project = ForestEvent(
+          id: 'project_nursery',
+          kind: 'project',
+          project: ForestProject.nursery);
+      const goal = ForestEvent(
+          id: 'goal_100', kind: 'goal', project: ForestProject.pond);
+      final snapshot = RemoteSnapshot(
+          tasks: [], entries: [], timers: [], forest: const [project, goal]);
+      await first.push(snapshot: snapshot);
+      await first.push(snapshot: snapshot);
+      final received = ForestState((await second.pull()).forest);
+      expect(received.projects, {ForestProject.nursery});
+      expect(received.activeProject, ForestProject.pond);
+      final collection = 'users/${first.auth.userId}/forest';
+      for (final event in [
+        {'id': 'debug-pack', 'kind': 'debugResources'},
+        {'id': 'debug-budget', 'kind': 'debugChoiceBudget'},
+        {
+          'id': 'goal_restoration',
+          'kind': 'restorationGoal',
+          'restoration': 'grass'
+        },
+        {
+          'id': 'project_pond',
+          'kind': 'choiceProject',
+          'project': 'pond',
+          'atCompletion': 5
+        },
+        {'id': 'bonus_test', 'kind': 'choiceBonus', 'project': 'pond'},
+        {'id': 'project_pond', 'kind': 'project', 'project': 'castle'},
+        {'id': 'project_wrong', 'kind': 'project', 'project': 'pond'},
+        {'id': 'goal_bad', 'kind': 'goal', 'project': 'pond', 'materials': 999},
+      ]) {
+        await expectLater(
+            first.firestore.document('$collection/${event['id']}').set(event),
+            throwsA(anything));
+      }
+      final path = '$collection/${project.id}';
+      await expectLater(
+          otherUser.firestore.document(path).get(), throwsA(anything));
+      await expectLater(
+          otherUser.firestore.document(path).set(project.toJson()),
+          throwsA(anything));
+      await expectLater(
+          first.firestore.document(path).set(goal.toJson()), throwsA(anything));
+      await expectLater(
+          first.firestore.document(path).delete(), throwsA(anything));
+    });
+
     test('auth listeners receive the current state and sign-out', () async {
       expect(await first.observeAuthState().first, isTrue);
       final signedOut = first.observeAuthState().firstWhere((value) => !value);
