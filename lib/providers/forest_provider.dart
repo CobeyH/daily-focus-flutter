@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../models/forest.dart';
 import 'app_controller.dart';
+import 'forest_reward_provider.dart';
 
 final forestProvider =
     NotifierProvider<ForestController, ForestState>(ForestController.new);
@@ -10,13 +11,14 @@ class ForestController extends Notifier<ForestState> {
   @override
   ForestState build() => ForestState(ref.watch(storageProvider).loadForest());
 
-  Future<void> _append(ForestEvent event) async {
-    if (state.byId.containsKey(event.id)) return;
+  Future<ForestState?> _append(ForestEvent event) async {
+    if (state.byId.containsKey(event.id)) return null;
     final before = state;
     final next = ForestState([...state.events, event]);
     state = next;
     try {
       await ref.read(storageProvider).saveForest(next.events);
+      return next;
     } catch (_) {
       if (ref.mounted && identical(state, next)) state = before;
       rethrow;
@@ -24,8 +26,14 @@ class ForestController extends Notifier<ForestState> {
   }
 
   /// Called only after a new full task completion is recorded locally.
-  Future<void> awardCompletion(String taskId, String dateKey) => _append(
-      ForestEvent(id: ForestEvent.rewardId(taskId, dateKey), kind: 'reward'));
+  Future<void> awardCompletion(String taskId, String dateKey) async {
+    final before = state;
+    final after = await _append(
+        ForestEvent(id: ForestEvent.rewardId(taskId, dateKey), kind: 'reward'));
+    if (after != null && ref.mounted) {
+      ref.read(forestRewardProvider.notifier).emit(ForestReward(before, after));
+    }
+  }
 
   Future<void> _sync() async {
     try {

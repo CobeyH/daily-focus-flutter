@@ -101,13 +101,17 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                   'Your clearing expands with your level. Trees, levels, and resources never decay. '
                   'Undo keeps your rewards; the same occurrence never earns twice.'),
               const SizedBox(height: 20),
+              const Text('Grow each variety to discover its appearance. '
+                  'Previews show the best stage you have grown.'),
+              const SizedBox(height: 12),
               for (final species in TreeSpecies.values)
                 ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: SizedBox(
                         width: 48,
                         height: 64,
-                        child: ForestTreeArt(species: species, growth: 2)),
+                        child: ForestSpeciesPreview(
+                            forest: forest, species: species)),
                     title: Text(species.label),
                     subtitle: Text(
                         'Level ${species.unlockLevel} · ${species.seedCost} seeds'),
@@ -312,6 +316,9 @@ class _NurseryState extends ConsumerState<_Nursery> {
                   children: [
                     Text('Plant a tree', style: text.headlineSmall),
                     Text('${forest.seeds} seeds · Level ${forest.level}'),
+                    const SizedBox(height: 4),
+                    Text('Previews reveal only the stages you have grown.',
+                        style: text.bodySmall),
                     if (_error != null)
                       Text(_error!,
                           style: TextStyle(
@@ -329,7 +336,8 @@ class _NurseryState extends ConsumerState<_Nursery> {
                 SizedBox(
                     width: 68,
                     height: 100,
-                    child: ForestTreeArt(species: species, growth: 2)),
+                    child:
+                        ForestSpeciesPreview(forest: forest, species: species)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Column(

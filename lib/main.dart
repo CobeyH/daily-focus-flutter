@@ -11,6 +11,7 @@ import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'storage/firebase_storage.dart';
 import 'theme/app_theme.dart';
+import 'widgets/forest_reward_overlay.dart';
 
 @pragma('vm:entry-point')
 Future<void> homeWidgetMain() => refreshHomeWidgetBackground();
@@ -84,6 +85,7 @@ class _DailyFocusAppState extends ConsumerState<DailyFocusApp>
       theme: focusTheme(Brightness.light),
       darkTheme: focusTheme(Brightness.dark),
       themeMode: ThemeMode.system,
+      builder: (context, child) => ForestRewardOverlay(child: child!),
       home: const _AuthGate(),
     );
   }

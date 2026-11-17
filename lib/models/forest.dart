@@ -76,6 +76,9 @@ class ForestState {
   TreeSpecies? get nextUnlock =>
       TreeSpecies.values.where((s) => s.unlockLevel > level).firstOrNull;
   bool unlocked(TreeSpecies species) => level >= species.unlockLevel;
+  int highestGrowth(TreeSpecies species) => trees
+      .where((tree) => tree.species == species)
+      .fold(0, (best, tree) => math.max(best, tree.growth));
 
   late final List<ForestTree> trees = _placeTrees();
   List<ForestTree> _placeTrees() {

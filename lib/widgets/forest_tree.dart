@@ -6,6 +6,22 @@ import 'forest_scene_geometry.dart';
 
 final _pictures = <(TreeSpecies, int), ui.Picture>{};
 
+class ForestSpeciesPreview extends StatelessWidget {
+  final ForestState forest;
+  final TreeSpecies species;
+  const ForestSpeciesPreview(
+      {super.key, required this.forest, required this.species});
+  @override
+  Widget build(BuildContext context) => forest.unlocked(species)
+      ? ForestTreeArt(species: species, growth: forest.highestGrowth(species))
+      : Semantics(
+          label: '${species.label}, unlocks at level ${species.unlockLevel}',
+          child: Center(
+              child: Icon(Icons.lock_outline_rounded,
+                  size: 28,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)));
+}
+
 void clearForestTreePictures() {
   for (final picture in _pictures.values) {
     picture.dispose();
@@ -187,12 +203,17 @@ class _TreeMesh {
       return;
     }
     canvas.save();
-    if (growth == 1) {
-      canvas.scale(.66);
+    final young = growth == 1;
+    if (young) {
+      canvas.scale(.8);
     }
     final birch = species == TreeSpecies.birch;
     trunk(
-        species == TreeSpecies.redwood ? 105 : 72,
+        young
+            ? 58
+            : species == TreeSpecies.redwood
+                ? 105
+                : 72,
         species == TreeSpecies.redwood ? 7 : 4.5,
         birch ? const Color(0xFFE5DFCA) : const Color(0xFF8D6542));
     switch (species) {
@@ -201,15 +222,21 @@ class _TreeMesh {
       case TreeSpecies.redwood:
         final cedar = species == TreeSpecies.cedar;
         final redwood = species == TreeSpecies.redwood;
-        final layers = redwood ? 5 : 4;
+        final layers = young
+            ? 2
+            : redwood
+                ? 5
+                : 4;
         for (var i = 0; i < layers; i++) {
           evergreen(
               28.0 + i * (redwood ? 21 : 18),
-              (cedar
-                      ? 43
-                      : redwood
-                          ? 29
-                          : 34) -
+              (young
+                      ? 23
+                      : cedar
+                          ? 43
+                          : redwood
+                              ? 29
+                              : 34) -
                   i * (redwood ? 4.0 : 6.0),
               cedar ? 39 : 43,
               [
@@ -221,7 +248,8 @@ class _TreeMesh {
               ][i]);
         }
       case TreeSpecies.birch:
-        crown(0, 0, 82, 24, 40, const Color(0xFFA4C97B));
+        crown(0, 0, young ? 62 : 82, young ? 16 : 24, young ? 25 : 40,
+            const Color(0xFFA4C97B));
         for (var z = 15.0; z < 51; z += 10) {
           polygon([
             Offset(-3, -z),
@@ -233,17 +261,29 @@ class _TreeMesh {
       case TreeSpecies.oak:
       case TreeSpecies.maple:
         final maple = species == TreeSpecies.maple;
-        crown(-17, -5, 73, 27, 27,
-            maple ? const Color(0xFFC96F43) : const Color(0xFF5A8C53));
-        crown(18, 5, 73, 27, 30,
-            maple ? const Color(0xFFD88942) : const Color(0xFF6C9B5C));
-        crown(-2, -1, 97, 27, 27,
-            maple ? const Color(0xFFE7AD57) : const Color(0xFF88AE6C));
+        if (young) {
+          crown(0, 0, 62, 22, 24,
+              maple ? const Color(0xFFD58C4D) : const Color(0xFF78A266));
+        } else {
+          crown(-17, -5, 73, 27, 27,
+              maple ? const Color(0xFFC96F43) : const Color(0xFF5A8C53));
+          crown(18, 5, 73, 27, 30,
+              maple ? const Color(0xFFD88942) : const Color(0xFF6C9B5C));
+          crown(-2, -1, 97, 27, 27,
+              maple ? const Color(0xFFE7AD57) : const Color(0xFF88AE6C));
+        }
       case TreeSpecies.willow:
-        crown(0, 0, 80, 39, 24, const Color(0xFF6CAA80));
-        for (var i = 0; i < 7; i++) {
-          final angle = i * math.pi * 2 / 7;
-          crown(math.cos(angle) * 28, math.sin(angle) * 28, 57, 12, 30,
+        crown(0, 0, young ? 62 : 80, young ? 23 : 39, young ? 18 : 24,
+            const Color(0xFF6CAA80));
+        final branches = young ? 3 : 7;
+        for (var i = 0; i < branches; i++) {
+          final angle = i * math.pi * 2 / branches;
+          crown(
+              math.cos(angle) * (young ? 15 : 28),
+              math.sin(angle) * (young ? 15 : 28),
+              young ? 49 : 57,
+              young ? 7 : 12,
+              young ? 16 : 30,
               i.isEven ? const Color(0xFF73AD83) : const Color(0xFF4F926D),
               segments: 6);
         }

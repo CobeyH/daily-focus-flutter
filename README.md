@@ -128,6 +128,23 @@ gradually increasing XP requirements, and expand the clearing. Previous forest
 rewards count toward levels automatically. Spending resources does not reduce
 XP or lock a variety again.
 
+Newly saved completion rewards show an animated XP panel above the current page.
+The bar fills to the end of the old level before switching to the new one, with
+a leaf/star celebration and the names of newly unlocked varieties. Rapid rewards
+are grouped into the next panel, without stacking panels or moving the task list.
+Feedback pauses while the app is in the background and resumes when you return.
+Reduced motion keeps the final XP/level/unlock message and skips moving effects.
+Undo/re-completion and cloud sync never replay XP rewards already earned.
+See the [XP animation](docs/images/forest-xp-progress.png) and
+[level-up](docs/images/forest-level-up.png) render previews.
+
+The nursery and unlock list show the names and required levels of future trees,
+with generic locks instead of unrevealed artwork. Unlocked varieties show only
+the highest growth stage you have reached for that variety, starting with a
+seedling. Young trees have smaller, simpler canopies; mature forms are revealed
+when you grow them fully. Your actual planted trees always show their own stage.
+The [nursery preview](docs/images/forest-tree-discovery.png) illustrates these rules.
+
 | Tree | Unlock level | Seed cost |
 | --- | --- | --- |
 | Pine | 1 | 3 |
