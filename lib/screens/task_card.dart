@@ -127,14 +127,15 @@ class TaskCard extends ConsumerWidget {
                     itemBuilder: (_) => [
                           const PopupMenuItem(
                               value: 'edit', child: Text('Edit task')),
-                          if (current.visible && !finished) ...[
+                          if (current.canComplete && !finished) ...[
                             if (task.type != TaskType.multiStep)
                               const PopupMenuItem(
                                   value: 'complete',
                                   child: Text('Mark complete')),
-                            const PopupMenuItem(
-                                value: 'skip',
-                                child: Text('Skip this occurrence')),
+                            if (current.visible)
+                              const PopupMenuItem(
+                                  value: 'skip',
+                                  child: Text('Skip this occurrence')),
                           ],
                           if (current.progress > 0 || finished || timer != null)
                             const PopupMenuItem(
@@ -163,7 +164,7 @@ class TaskCard extends ConsumerWidget {
                         style: text.bodySmall
                             ?.copyWith(color: colors.onSurfaceVariant))),
               if (task.type == TaskType.multiStep &&
-                  current.visible &&
+                  current.canComplete &&
                   !finished &&
                   current.steps.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -177,7 +178,7 @@ class TaskCard extends ConsumerWidget {
                   runSpacing: 12,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (current.visible) ...[
+                    if (current.canComplete) ...[
                       if (finished)
                         OutlinedButton.icon(
                             onPressed: () => controller.undoCompletion(task,

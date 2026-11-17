@@ -32,6 +32,13 @@ of their step names, so later definition edits apply to future occurrences.
 - **Tasks / Upcoming tasks**: Today includes actionable tasks and, below them,
   tasks whose visibility will start later today. Other future dates remain in
   the Upcoming view. The list updates at minute boundaries and on app resume.
+  Upcoming tasks starts collapsed and shows its count, such as **Upcoming tasks (2)**;
+  tap the heading to open or close the list.
+- **Complete early today**: tasks appearing later today can be completed directly
+  from Upcoming tasks before their slot/custom start. Count progress, multi-step
+  actions, and timer starts work early too. The appearance time stays unchanged;
+  completion is saved against the same due date, with normal rewards and undo.
+  Tasks whose appearance starts on a later calendar day remain unavailable.
 
 - **Due time**: a specific local time, or end of day.
 - **Grace period**: none (strict), or up to 30 calendar days late. A Wednesday

@@ -181,15 +181,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final displayedPending = [
       ...pending,
       for (final event in _departing.values)
-        if (!pending.any((o) =>
-            o.task.id == event.before.task.id && o.key == event.before.key))
+        if ((_view != 'Today' || event.before.visible) &&
+            !pending.any((o) =>
+                o.task.id == event.before.task.id && o.key == event.before.key))
           event.before
     ]..sort((a, b) {
         final compare = rank(a).compareTo(rank(b));
         return compare == 0 ? a.dueDate.compareTo(b.dueDate) : compare;
       });
-    final visibleKeys =
-        displayedPending.map((o) => '${o.task.id}/${o.key}').toSet();
+    final displayedUpcoming = [
+      ...upcomingToday,
+      for (final event in _departing.values)
+        if (!event.before.visible &&
+            dateKey(event.before.appearsAt) == dateKey(now) &&
+            !upcomingToday.any((o) =>
+                o.task.id == event.before.task.id && o.key == event.before.key))
+          event.before,
+    ]..sort((a, b) => a.appearsAt.compareTo(b.appearsAt));
+    final visibleKeys = [
+      ...displayedPending,
+      if (_view == 'Today') ...displayedUpcoming
+    ].map((o) => '${o.task.id}/${o.key}').toSet();
     _cardAnchors.removeWhere((key, _) => !visibleKeys.contains(key));
     final pendingContents =
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -318,18 +330,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ? emptyState
                             : const SizedBox.shrink(),
                       ),
-                    if (_view == 'Today' && upcomingToday.isNotEmpty) ...[
+                    if (_view == 'Today' && displayedUpcoming.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      Text('Upcoming tasks', style: text.titleLarge),
-                      const SizedBox(height: 12),
-                      for (final occurrence in upcomingToday)
-                        Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: TaskCard(
-                                key: ValueKey(
-                                    'later-${occurrence.task.id}/${occurrence.key}'),
-                                task: occurrence.task,
-                                occurrence: occurrence)),
+                      ExpansionTile(
+                          key: const PageStorageKey('upcoming-today'),
+                          initiallyExpanded: false,
+                          tilePadding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          title: Text(
+                              'Upcoming tasks (${upcomingToday.length})',
+                              style: text.titleLarge),
+                          shape: const Border(),
+                          collapsedShape: const Border(),
+                          children: [
+                            for (final occurrence in displayedUpcoming)
+                              _pendingCard(occurrence),
+                          ]),
                     ],
                     if (completed.isNotEmpty)
                       Padding(

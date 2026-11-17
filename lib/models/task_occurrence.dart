@@ -33,6 +33,10 @@ class TaskOccurrence {
   DateTime get appearsAt => task.timing.appearsAt(dueDate, slots);
   bool get visible =>
       !now.isBefore(appearsAt) && !task.timing.visibilityEnded(dueDate, now);
+  bool get canComplete =>
+      visible ||
+      (dateOnly(appearsAt) == dateOnly(now) &&
+          !task.timing.visibilityEnded(dueDate, now));
   bool get completedToday =>
       entry?.completedAt != null &&
       dateKey(entry!.completedAt!.toLocal()) == dateKey(now);

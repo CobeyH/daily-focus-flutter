@@ -69,13 +69,21 @@ class TimerController extends Notifier<TimerState> {
   Future<void> start(Task task, {String? occurrenceKey}) async {
     if (task.type != TaskType.minutes) return;
     final now = ref.read(timeSourceProvider)();
-    final occurrence = currentOccurrence(
-        task,
-        ref.read(appControllerProvider).entries,
-        now,
-        ref.read(daySlotsProvider));
-    final key = occurrenceKey ?? occurrence?.key;
-    if (key == null) return;
+    final entries = ref.read(appControllerProvider).entries;
+    final slots = ref.read(daySlotsProvider);
+    final due = occurrenceKey == null ? null : DateTime.tryParse(occurrenceKey);
+    if (occurrenceKey != null && due == null) return;
+    final occurrence = due == null
+        ? currentOccurrence(task, entries, now, slots)
+        : TaskOccurrence(
+            task, due, entryFor(entries, task.id, occurrenceKey!), now, slots);
+    if (occurrence == null ||
+        !occurrence.canComplete ||
+        occurrence.done ||
+        occurrence.skipped) {
+      return;
+    }
+    final key = occurrence.key;
     final existing = state.timers[task.id];
     final timer = existing != null &&
             (existing.occurrenceKey == key || existing.occurrenceKey == null)

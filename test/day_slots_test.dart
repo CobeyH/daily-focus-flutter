@@ -1,4 +1,5 @@
 import 'package:daily_focus/models/day_slots.dart';
+import 'package:daily_focus/models/schedule.dart';
 import 'package:daily_focus/models/task.dart';
 import 'package:daily_focus/models/task_timing.dart';
 import 'package:daily_focus/models/task_occurrence.dart';
@@ -14,6 +15,76 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets(
+      'Upcoming defaults closed, toggles, and counts only tasks later today',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    var now = DateTime(2026, 11, 17, 9);
+    Task task(String id, int hour,
+            {Schedule schedule = const ScheduleDaily()}) =>
+        Task(
+            id: id,
+            name: id,
+            type: TaskType.count,
+            goal: 1,
+            step: 1,
+            color: 0xff247866,
+            icon: Icons.check.codePoint,
+            createdAt: DateTime(2026, 11, 16),
+            schedule: schedule,
+            timing: TaskTiming(showMinute: hour * 60));
+    await AppStorage(prefs).saveTasks([
+      task('Walk', 17),
+      task('Read', 19),
+      task('Tomorrow', 17,
+          schedule: ScheduleOnce(dueDate: DateTime(2026, 11, 18))),
+    ]);
+    tester.view.physicalSize = const Size(390, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(ProviderScope(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      timeSourceProvider.overrideWithValue(() => now),
+    ], child: const MaterialApp(home: HomeScreen())));
+    await tester.pumpAndSettle();
+    final container =
+        ProviderScope.containerOf(tester.element(find.byType(HomeScreen)));
+    expect(find.text('Upcoming tasks (2)'), findsOneWidget);
+    expect(find.text('Walk'), findsNothing);
+    expect(find.text('Read'), findsNothing);
+    expect(find.text('Tomorrow'), findsNothing);
+    await tester.tap(find.text('Upcoming tasks (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Walk'), findsOneWidget);
+    expect(find.text('Read'), findsOneWidget);
+    await tester.tap(find.text('Upcoming tasks (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Walk'), findsNothing);
+    expect(find.text('Read'), findsNothing);
+    now = DateTime(2026, 11, 17, 17);
+    container.invalidate(clockProvider);
+    await tester.pumpAndSettle();
+    expect(find.text('Upcoming tasks (1)'), findsOneWidget);
+    expect(find.text('Walk'), findsOneWidget);
+    expect(find.text('Read'), findsNothing);
+    await tester.ensureVisible(find.text('Upcoming tasks (1)'));
+    await tester.tap(find.text('Upcoming tasks (1)'));
+    await tester.pumpAndSettle();
+    final readCard =
+        find.ancestor(of: find.text('Read'), matching: find.byType(TaskCard));
+    final complete =
+        find.descendant(of: readCard, matching: find.text('Complete'));
+    await tester.ensureVisible(complete);
+    await tester.tap(complete);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Upcoming tasks ('), findsNothing);
+    expect(find.text('Completed & skipped (1)'), findsOneWidget);
+    expect(find.text('Walk'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('slots resolve on the first appearance day, not each following day', () {
     const timing = TaskTiming(
         slot: DaySlot.evening, showDaysBefore: 1, visibleDaysAfter: 2);
@@ -113,15 +184,20 @@ void main() {
     expect(
         find.descendant(of: card('Afternoon'), matching: find.text('Complete')),
         findsOneWidget);
+    expect(find.text('Upcoming tasks (1)'), findsOneWidget);
+    expect(find.text('Evening'), findsNothing);
+    await tester.ensureVisible(find.text('Upcoming tasks (1)'));
+    await tester.tap(find.text('Upcoming tasks (1)'));
+    await tester.pumpAndSettle();
     expect(
         find.descendant(of: card('Evening'), matching: find.text('Complete')),
-        findsNothing);
+        findsOneWidget);
     expect(tester.getTopLeft(find.text('Evening')).dy,
-        greaterThan(tester.getTopLeft(find.text('Upcoming tasks')).dy));
+        greaterThan(tester.getTopLeft(find.text('Upcoming tasks (1)')).dy));
     now = DateTime(2026, 11, 13, 18);
     container.invalidate(clockProvider);
     await tester.pumpAndSettle();
-    expect(find.text('Upcoming tasks'), findsNothing);
+    expect(find.text('Upcoming tasks (1)'), findsNothing);
     expect(
         find.descendant(of: card('Evening'), matching: find.text('Complete')),
         findsOneWidget);
@@ -148,10 +224,10 @@ void main() {
     await setEvening('10:00', '19');
     await tester.tap(find.text('Save time slots'));
     await tester.pumpAndSettle();
-    expect(find.text('Upcoming tasks'), findsOneWidget);
+    expect(find.text('Upcoming tasks (1)'), findsOneWidget);
     expect(
         find.descendant(of: card('Evening'), matching: find.text('Complete')),
-        findsNothing);
+        findsOneWidget);
     expect(AppStorage(prefs).loadTasks().last.timing.slot, DaySlot.evening);
     expect(tester.takeException(), isNull);
   });
