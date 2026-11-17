@@ -58,6 +58,48 @@ history is retained without inventing timestamps. Editing timing does not restar
 a running timer. Deadline reminders are not added; timer alerts retain their
 existing platform support.
 
+## Android home-screen widget
+
+Long-press an empty area of the Android home screen, choose **Widgets**, and add
+**Daily Focus · Tasks**, or choose **Daily Focus · Tasks (2×2)** for a small square
+like a calendar widget. Both versions scroll through the current tasks. The
+compact version uses smaller rows and shorter progress labels; it keeps the same
+background updates and tap-to-open behavior. Resize either panel to show more rows.
+Open the app and sign in once before adding it.
+
+The panel shows current incomplete tasks with progress and due/grace information.
+It uses the same recurrence, visibility, and morning/afternoon/evening settings as
+the app, includes unfinished tasks from earlier time buckets, and counts tasks
+coming later today. Completed and skipped tasks disappear; undo restores them.
+Multi-step tasks show the next step. Tap a row/header to open Daily Focus, or use
+the refresh button to reload the panel without opening the app. Task completion
+and timer controls are handled in the app.
+
+Edits, task progress, synchronization, and time-slot changes update the widget
+while the app is running. A short-lived WorkManager job recalculates the panel
+from local saved data when the app is closed, using the existing Dart scheduler.
+It runs at scheduled visibility/deadline/day boundaries, on manual refresh,
+after reboot/time-zone changes, and on Android's periodic widget update.
+Android battery restrictions can delay background refreshes. The background job
+does not fetch from Firebase or modify tasks. Open the app to pull new changes
+from another device. Signing out clears task names from the widget immediately.
+Lists over 100 current tasks show a link to the remaining tasks in the app.
+
+Run the Dart tests with `flutter test test/home_widget_test.dart`. With an Android
+emulator connected, run native rendering, privacy, and background-refresh tests:
+
+```sh
+cd android
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew :app:connectedDebugAndroidTest -Ptarget=lib/main.dart
+```
+
+The native test captures light/dark previews to the test device's app cache.
+See [light preview](docs/images/task-widget-light.png) and
+[dark preview](docs/images/task-widget-dark.png), rendered from the actual Android
+RemoteViews with sample task data.
+The compact [light](docs/images/task-widget-compact-light.png) and
+[dark](docs/images/task-widget-compact-dark.png) previews show the separate 2×2 option.
+
 ## Forest rewards
 
 Open the tree button in the app bar to tend your forest. A pine

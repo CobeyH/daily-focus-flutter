@@ -30,6 +30,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -48,6 +49,9 @@ kotlin {
 }
 
 dependencies {
+    implementation("androidx.work:work-runtime:2.11.2")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 

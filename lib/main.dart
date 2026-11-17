@@ -5,10 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/app_controller.dart';
 import 'providers/clock_provider.dart';
 import 'providers/timer_controller.dart';
+import 'providers/home_widget_provider.dart';
+import 'services/home_widget_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'storage/firebase_storage.dart';
 import 'theme/app_theme.dart';
+
+@pragma('vm:entry-point')
+Future<void> homeWidgetMain() => refreshHomeWidgetBackground();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +77,7 @@ class _DailyFocusAppState extends ConsumerState<DailyFocusApp>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(homeWidgetSyncProvider);
     return MaterialApp(
       title: 'Daily Focus',
       debugShowCheckedModeBanner: false,
