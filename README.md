@@ -138,9 +138,24 @@ XP or lock a variety again.
 | Cedar | 12 | 9 |
 | Redwood | 16 | 12 |
 
-The forest is one continuous landscape. Drag to explore, pinch or use the zoom
-buttons, and select the overview button to see the whole clearing. Newly planted
-trees receive saved positions; existing trees stay in place as the forest grows.
+The forest fills a dedicated screen with a 2.5D isometric clearing, raised earth,
+faceted tree canopies, shadows, a pond, and paths. It automatically frames the
+whole clearing; there is no draggable map inside a scrolling page. Tap a tree to
+select it, use **Closer look at selected tree** for an automatic close-up, and
+**View whole forest** to return. The arrow buttons and **Your trees** collection
+also select trees without moving around a map.
+
+Water the selected tree from the fixed tending panel. **Plant a tree** opens a
+separate nursery; choose a variety there to plant and return to the scene. Tap
+the level chip for XP and unlock details. Wide windows put the tending panel
+beside the scene, with its own scroll area if needed. It never wraps the scene.
+Light/dark themes, reduced motion, and enlarged text are supported.
+See the rendered [overview](docs/images/forest-isometric-light.png),
+[close-up](docs/images/forest-isometric-close.png), and
+[dark scene](docs/images/forest-isometric-dark.png). Interactive phone/wide
+landscape previews are in `lib/previews/forest_preview.dart`.
+
+Newly planted trees receive saved positions; existing trees stay in place as the forest grows.
 Each tree grows from seedling to young to fully grown with two water actions.
 Trees and append-only reward, planting, and watering actions persist locally and
 sync to the account's private

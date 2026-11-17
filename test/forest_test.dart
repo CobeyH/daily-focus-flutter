@@ -9,6 +9,7 @@ import 'package:daily_focus/storage/remote_storage.dart';
 import 'package:daily_focus/storage/sync_coordinator.dart';
 import 'package:daily_focus/theme/app_theme.dart';
 import 'package:daily_focus/widgets/forest_landscape.dart';
+import 'package:daily_focus/widgets/forest_scene_geometry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -199,16 +200,46 @@ void main() {
     expect(remote.snapshot.forest, hasLength(3));
   });
 
+  test(
+      'isometric overview frames existing plots and tall trees across screen sizes',
+      () {
+    final forest = ForestState([
+      for (var i = 0; i < 500; i++) reward(i),
+      for (var i = 1; i <= 80; i++)
+        ForestEvent(
+            id: 'tree-$i',
+            kind: 'plant',
+            species: TreeSpecies.redwood,
+            plot: i),
+    ]);
+    for (final size in [
+      const Size(320, 350),
+      const Size(900, 500),
+      const Size(340, 170)
+    ]) {
+      final layout = ForestSceneLayout(forest, size);
+      final viewport = Offset.zero & size;
+      for (final tree in forest.trees) {
+        final base = layout.treeBase(tree);
+        expect(viewport.contains(base), isTrue);
+        expect(viewport.contains(base - Offset(0, 155 * layout.scale)), isTrue);
+      }
+    }
+    final before = forest.trees.map((tree) => tree.plot).toList();
+    ForestSceneLayout(forest, const Size(390, 600),
+        focusedTree: forest.trees.last);
+    expect(forest.trees.map((tree) => tree.plot), before);
+  });
+
   testWidgets(
-      'continuous forest supports overview, tree selection, panning, and resizing',
+      'forest fills its scene, selects trees, and never competes with page scrolling',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     await AppStorage(prefs).saveForest([
-      for (var i = 0; i < 300; i++) reward(i),
-      for (var i = 1; i <= 10; i++)
-        ForestEvent(
-            id: 'plant-$i', kind: 'plant', species: TreeSpecies.pine, plot: i)
+      for (var i = 0; i < 12; i++) reward(i),
+      const ForestEvent(
+          id: 'plant-1', kind: 'plant', species: TreeSpecies.pine, plot: 1),
     ]);
     tester.view.physicalSize = const Size(390, 950);
     tester.view.devicePixelRatio = 1;
@@ -219,41 +250,39 @@ void main() {
         child: MaterialApp(
             theme: focusTheme(Brightness.light), home: const ForestScreen())));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byType(ForestLandscape));
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(find.byType(Scrollable), findsNothing);
+    final scene = find.byType(ForestLandscape);
+    expect(tester.getSize(scene).height, greaterThan(400));
+    final tree = find.byKey(const ValueKey('forest-tree-plant-1'));
+    await tester.tap(tree);
     await tester.pumpAndSettle();
+    expect(tester.widget<ForestLandscape>(scene).selectedId, 'plant-1');
+    final beforeZoom = tester.getSize(tree).width;
+    await tester.tap(find.byTooltip('Closer look at selected tree'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(tree).width, greaterThan(beforeZoom));
+    final before = tester.getRect(scene);
+    await tester.dragFrom(tester.getTopLeft(scene) + const Offset(40, 150),
+        const Offset(70, -100));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(scene), before);
     await tester.tap(find.byTooltip('View whole forest'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('forest-tree-plant-8')));
+    await tester.tap(find.byTooltip('Next tree'));
     await tester.pumpAndSettle();
-    expect(
-        tester.widget<ForestLandscape>(find.byType(ForestLandscape)).selectedId,
-        'plant-8');
-    final viewer = tester.widget<InteractiveViewer>(
-        find.byKey(const ValueKey('continuous-forest')));
-    final beforePan = viewer.transformationController!.value.clone();
-    final pan = await tester.startGesture(
-        tester.getTopLeft(find.byType(ForestLandscape)) +
-            const Offset(70, 200));
-    for (var i = 0; i < 5; i++) {
-      await pan.moveBy(const Offset(20, 0));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    await pan.up();
-    await tester.pumpAndSettle();
-    expect(viewer.transformationController!.value, isNot(beforePan));
-    final beforeZoom =
-        viewer.transformationController!.value.getMaxScaleOnAxis();
-    await tester.tap(find.byTooltip('Zoom in'));
-    await tester.pumpAndSettle();
-    expect(viewer.transformationController!.value.getMaxScaleOnAxis(),
-        greaterThan(beforeZoom));
-    tester.view.physicalSize = const Size(760, 950);
+    expect(tester.widget<ForestLandscape>(scene).selectedId, 'starter');
+    tester.view.physicalSize = const Size(800, 430);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(ForestState(AppStorage(prefs).loadForest()).trees, hasLength(11));
+    // On a short wide window only the independent controls can scroll.
+    expect(find.ancestor(of: scene, matching: find.byType(Scrollable)),
+        findsNothing);
+    expect(ForestState(AppStorage(prefs).loadForest()).trees, hasLength(2));
   });
 
-  testWidgets('forest can water and plant, persists, and fits enlarged text',
+  testWidgets(
+      'forest watering and nursery persist with enlarged text and locked varieties',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -272,42 +301,50 @@ void main() {
                 child: child!),
             home: const ForestScreen())));
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
     expect(find.text('5 seeds'), findsOneWidget);
     expect(find.text('Level 2'), findsOneWidget);
-    await tester.scrollUntilVisible(find.byType(ForestLandscape), 150,
-        scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.byTooltip('View whole forest'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Water tree · 1 water'), 150,
-        scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Water tree · 1 water'));
+    await tester.tap(find.text('Water · 1'));
     await tester.pumpAndSettle();
     expect(ForestState(AppStorage(prefs).loadForest()).trees.first.growth, 1);
-    await tester.scrollUntilVisible(find.text('Plant pine'), 150,
-        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Plant a tree'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Plant pine'));
+    final pine = find.byKey(const ValueKey('nursery-pine'));
+    await tester
+        .tap(find.descendant(of: pine, matching: find.text('Plant pine')));
     await tester.pumpAndSettle();
-    expect(ForestState(AppStorage(prefs).loadForest()).trees, hasLength(2));
-    expect(ForestState(AppStorage(prefs).loadForest()).seeds, 2);
-    expect(ForestState(AppStorage(prefs).loadForest()).trees.last.plot, 1);
-    await tester.scrollUntilVisible(
-        find.widgetWithText(ChoiceChip, 'Redwood'), 150,
-        scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Redwood'));
+    final saved = ForestState(AppStorage(prefs).loadForest());
+    expect(saved.trees, hasLength(2));
+    expect(saved.seeds, 2);
+    expect(saved.trees.last.plot, 1);
+    expect(
+        tester.widget<ForestLandscape>(find.byType(ForestLandscape)).selectedId,
+        saved.trees.last.id);
+    await tester.tap(find.text('Plant a tree'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Unlocks at level 16'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Unlock at level 16'), 150,
-        scrollable: find.byType(Scrollable).first);
+    final redwood = find.byKey(const ValueKey('nursery-redwood'));
+    await tester.scrollUntilVisible(redwood, 200,
+        scrollable: find.byType(Scrollable).last);
+    expect(find.text('Unlocks at level 16'), findsOneWidget);
     expect(
         tester
-            .widget<OutlinedButton>(
-                find.widgetWithText(OutlinedButton, 'Unlock at level 16'))
+            .widget<FilledButton>(find.descendant(
+                of: redwood, matching: find.byType(FilledButton)))
             .onPressed,
         isNull);
-
+    expect(tester.takeException(), isNull);
+    Navigator.of(tester.element(redwood)).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Your trees (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('collection-starter')));
+    await tester.pumpAndSettle();
+    expect(
+        tester.widget<ForestLandscape>(find.byType(ForestLandscape)).selectedId,
+        'starter');
+    await tester.tap(find.text('Level 2'));
+    await tester.pumpAndSettle();
+    expect(find.text('50 lifetime XP · 2 trees'), findsOneWidget);
+    expect(find.textContaining('resources never decay'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
