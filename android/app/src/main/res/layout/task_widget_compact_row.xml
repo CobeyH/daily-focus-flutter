@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_task_row" android:layout_width="match_parent"
+    android:layout_height="wrap_content" android:minHeight="44dp" android:orientation="vertical"
+    android:paddingVertical="4dp">
+    <TextView android:id="@+id/widget_task_name" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold"
+        android:textColor="@color/widget_text" android:maxLines="2" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_task_detail" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textSize="10sp"
+        android:textColor="@color/widget_secondary" android:maxLines="2" android:ellipsize="end" />
+    <ProgressBar android:id="@+id/widget_task_progress" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="2dp" android:layout_marginTop="3dp"
+        android:progressTint="@color/widget_accent" android:progressBackgroundTint="@color/widget_track"
+        android:importantForAccessibility="no" />
+</LinearLayout>

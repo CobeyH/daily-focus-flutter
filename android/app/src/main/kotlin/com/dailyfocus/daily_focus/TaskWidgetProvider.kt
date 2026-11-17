@@ -19,7 +19,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TaskWidgetProvider : AppWidgetProvider() {
+open class TaskWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         renderAll(context)
         refresh(context)
@@ -39,6 +39,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onDisabled(context: Context) {
+        if (ids(context).isNotEmpty()) return
         alarm(context).cancel(refreshIntent(context))
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
     }
@@ -50,8 +51,11 @@ class TaskWidgetProvider : AppWidgetProvider() {
         private const val PREFS = "task_widget"
 
         fun store(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        fun ids(context: Context): IntArray = AppWidgetManager.getInstance(context)
-            .getAppWidgetIds(ComponentName(context, TaskWidgetProvider::class.java))
+        fun ids(context: Context): IntArray {
+            val manager = AppWidgetManager.getInstance(context)
+            return listOf(TaskWidgetProvider::class.java, CompactTaskWidgetProvider::class.java)
+                .flatMap { manager.getAppWidgetIds(ComponentName(context, it)).toList() }.toIntArray()
+        }
 
         fun publish(context: Context, signedIn: Boolean, snapshot: String?) {
             val prefs = store(context)
@@ -108,16 +112,17 @@ class TaskWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        fun row(context: Context, task: JSONObject): RemoteViews =
-            RemoteViews(context.packageName, R.layout.task_widget_row).apply {
+        fun row(context: Context, task: JSONObject, compact: Boolean = false): RemoteViews =
+            RemoteViews(context.packageName, if (compact) R.layout.task_widget_compact_row else R.layout.task_widget_row).apply {
                 setTextViewText(R.id.widget_task_name, task.optString("name"))
-                setTextViewText(R.id.widget_task_detail, task.optString("detail"))
+                setTextViewText(R.id.widget_task_detail, if (compact)
+                    task.optString("compactDetail", task.optString("detail")) else task.optString("detail"))
                 setProgressBar(R.id.widget_task_progress, task.optInt("goal", 1).coerceAtLeast(1),
                     task.optInt("progress", 0), false)
                 setOnClickFillInIntent(R.id.widget_task_row, Intent())
             }
 
-        fun createViews(context: Context, id: Int): RemoteViews {
+        fun createViews(context: Context, id: Int, compact: Boolean = false): RemoteViews {
             val signedIn = store(context).getBoolean("signedIn", false)
             val data = snapshot(context)
             val tasks = data?.optJSONArray("tasks")
@@ -132,9 +137,10 @@ class TaskWidgetProvider : AppWidgetProvider() {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or
                     (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0))
-            val views = RemoteViews(context.packageName, R.layout.task_widget)
+            val views = RemoteViews(context.packageName,
+                if (compact) R.layout.task_widget_compact else R.layout.task_widget)
             val datePattern = android.text.format.DateFormat.getBestDateTimePattern(
-                Locale.getDefault(), "EEE MMM d")
+                Locale.getDefault(), if (compact) "MMM d" else "EEE MMM d")
             views.setTextViewText(R.id.widget_date,
                 SimpleDateFormat(datePattern, Locale.getDefault()).format(Date()))
             views.setOnClickPendingIntent(R.id.widget_header, open)
@@ -154,17 +160,19 @@ class TaskWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_footer, when {
                 !signedIn -> "Tap to open Daily Focus"
                 total > count -> "${total - count} more in Daily Focus"
+                compact && count > 0 -> "$total ${if (total == 1) "task" else "tasks"}"
                 upcoming > 0 -> "$upcoming ${if (upcoming == 1) "task" else "tasks"} later today"
                 else -> "Daily Focus"
             })
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val items = RemoteViews.RemoteCollectionItems.Builder().setViewTypeCount(1)
-                for (i in 0 until count) items.addItem(i.toLong(), row(context, tasks!!.getJSONObject(i)))
+                for (i in 0 until count) items.addItem(i.toLong(), row(context, tasks!!.getJSONObject(i), compact))
                 views.setRemoteAdapter(R.id.widget_tasks, items.build())
             } else {
                 val adapter = Intent(context, TaskWidgetService::class.java)
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
-                adapter.data = android.net.Uri.parse("dailyfocus-widget://tasks/$id")
+                    .putExtra("compact", compact)
+                adapter.data = android.net.Uri.parse("dailyfocus-widget://tasks/$id/$compact")
                 @Suppress("DEPRECATION")
                 views.setRemoteAdapter(R.id.widget_tasks, adapter)
             }
@@ -174,7 +182,11 @@ class TaskWidgetProvider : AppWidgetProvider() {
         fun renderAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val widgetIds = ids(context)
-            for (id in widgetIds) manager.updateAppWidget(id, createViews(context, id))
+            for (id in widgetIds) {
+                val compact = manager.getAppWidgetInfo(id)?.provider?.className ==
+                    CompactTaskWidgetProvider::class.java.name
+                manager.updateAppWidget(id, createViews(context, id, compact))
+            }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && widgetIds.isNotEmpty()) {
                 @Suppress("DEPRECATION")
                 manager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_tasks)

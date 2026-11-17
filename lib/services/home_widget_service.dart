@@ -75,6 +75,7 @@ Map<String, Object> buildHomeWidgetSnapshot({
     rows.add({
       'name': task.name,
       'detail': '$detail · ${occurrence.label}',
+      'compactDetail': detail,
       'progress': progress,
       'goal': occurrence.goal,
     });

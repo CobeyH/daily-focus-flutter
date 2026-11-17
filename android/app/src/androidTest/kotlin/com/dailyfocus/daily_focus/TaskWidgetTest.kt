@@ -105,7 +105,61 @@ class TaskWidgetTest {
         }
     }
 
-    @Test fun backgroundRefreshUsesSavedDartSchedulesWithoutOpeningTheApp() {
+    @Test fun compactWidgetUsesTwoCellsAndScrollsThroughEveryTask() {
+        val data = JSONObject(sample())
+        val tasks = data.getJSONArray("tasks")
+        for (i in 3..8) tasks.put(JSONObject().apply {
+            put("name", "Task $i"); put("detail", "0 / 1 · Due today")
+            put("compactDetail", "Due today"); put("progress", 0); put("goal", 1)
+        })
+        data.put("total", 8)
+        TaskWidgetProvider.publish(context, true, data.toString())
+        val info = AppWidgetManager.getInstance(context).installedProviders.first {
+            it.provider.className == CompactTaskWidgetProvider::class.java.name
+        }
+        assertEquals(2, info.targetCellWidth)
+        assertEquals(2, info.targetCellHeight)
+        for ((name, mode) in listOf("light" to Configuration.UI_MODE_NIGHT_NO,
+                "dark" to Configuration.UI_MODE_NIGHT_YES)) {
+            val config = Configuration(context.resources.configuration).apply {
+                uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or mode
+            }
+            val themed = context.createConfigurationContext(config)
+            instrumentation.runOnMainSync {
+                val view = TaskWidgetProvider.createViews(themed, 0, true)
+                    .apply(themed, AppWidgetHostView(themed))
+                val list = view.findViewById<ListView>(R.id.widget_tasks)
+                assertEquals(8, list.adapter.count)
+                assertEquals("8 tasks", view.findViewById<TextView>(R.id.widget_footer).text.toString())
+                val density = themed.resources.displayMetrics.density
+                val size = (150 * density).toInt()
+                fun layout() {
+                    view.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY))
+                    view.layout(0, 0, size, size)
+                }
+                layout()
+                val image = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                view.draw(Canvas(image))
+                File(context.cacheDir, "task-widget-compact-$name.png").outputStream().use {
+                    image.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+                image.recycle()
+                list.setSelection(7)
+                layout()
+                assertEquals("Last task must be reachable in the 2×2 list", 7, list.lastVisiblePosition)
+                val last = list.adapter.getView(7, null, list)
+                assertEquals("Task 8", last.findViewById<TextView>(R.id.widget_task_name).text.toString())
+            }
+        }
+        TaskWidgetProvider.publish(context, false, null)
+        instrumentation.runOnMainSync {
+            val view = TaskWidgetProvider.createViews(context, 0, true).apply(context, AppWidgetHostView(context))
+            assertEquals(View.GONE, view.findViewById<View>(R.id.widget_tasks).visibility)
+        }
+    }
+
+    @Test fun backgroundRefreshUsesSavedDartSchedulesWithOnlyCompactWidget() {
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val saved = listOf("flutter.tasks_v1", "flutter.entries_v1", "flutter.active_timers_v1", "flutter.day_slots_v1")
             .associateWith { prefs.getString(it, null) }
@@ -123,7 +177,7 @@ class TaskWidgetTest {
             TaskWidgetProvider.publish(context, true, sample())
             instrumentation.uiAutomation.adoptShellPermissionIdentity("android.permission.BIND_APPWIDGET")
             val bound = AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(id,
-                ComponentName(context, TaskWidgetProvider::class.java))
+                ComponentName(context, CompactTaskWidgetProvider::class.java))
             instrumentation.uiAutomation.dropShellPermissionIdentity()
             assertTrue("Could not bind test widget", bound)
             TaskWidgetProvider.refresh(context)

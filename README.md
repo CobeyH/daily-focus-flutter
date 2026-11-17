@@ -61,7 +61,10 @@ existing platform support.
 ## Android home-screen widget
 
 Long-press an empty area of the Android home screen, choose **Widgets**, and add
-**Daily Focus · Tasks**. Resize the panel to show more rows; the task list scrolls.
+**Daily Focus · Tasks**, or choose **Daily Focus · Tasks (2×2)** for a small square
+like a calendar widget. Both versions scroll through the current tasks. The
+compact version uses smaller rows and shorter progress labels; it keeps the same
+background updates and tap-to-open behavior. Resize either panel to show more rows.
 Open the app and sign in once before adding it.
 
 The panel shows current incomplete tasks with progress and due/grace information.
@@ -94,6 +97,8 @@ The native test captures light/dark previews to the test device's app cache.
 See [light preview](docs/images/task-widget-light.png) and
 [dark preview](docs/images/task-widget-dark.png), rendered from the actual Android
 RemoteViews with sample task data.
+The compact [light](docs/images/task-widget-compact-light.png) and
+[dark](docs/images/task-widget-compact-dark.png) previews show the separate 2×2 option.
 
 ## Forest rewards
 

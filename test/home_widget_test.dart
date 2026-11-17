@@ -152,6 +152,8 @@ void main() {
       TaskEntry(taskId: 'Read', dateKey: '2026-11-16', progress: 300),
     ], now: DateTime(2026, 11, 16, 14));
     expect(rows(snapshot).first['detail'], contains('Step 2 / 2 · Dry'));
+    expect(rows(snapshot).first['compactDetail'], 'Step 2 / 2 · Dry');
+    expect(rows(snapshot).last['compactDetail'], '5 / 15 min');
     expect(rows(snapshot).last['detail'], contains('5 / 15 min'));
     expect(jsonDecode(jsonEncode(snapshot))['tasks'], hasLength(2));
   });

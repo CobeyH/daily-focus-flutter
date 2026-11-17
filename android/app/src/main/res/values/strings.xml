@@ -2,6 +2,8 @@
     <string name="app_name">Daily Focus</string>
     <string name="widget_title">Tasks</string>
     <string name="widget_label">Daily Focus · Tasks</string>
+    <string name="widget_compact_label">Daily Focus · Tasks (2×2)</string>
+    <string name="widget_compact_description">A compact square with your next tasks and progress</string>
     <string name="widget_description">Your current tasks, progress, and due dates</string>
     <string name="widget_refresh">Refresh tasks</string>
     <string name="widget_open">Open Daily Focus to load tasks</string>
