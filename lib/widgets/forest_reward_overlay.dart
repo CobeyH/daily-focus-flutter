@@ -86,7 +86,14 @@ class _ForestRewardOverlayState extends ConsumerState<ForestRewardOverlay> {
   @override
   Widget build(BuildContext context) {
     ref.listen(forestRewardProvider, (_, next) {
-      if (next != null) _enqueue(next);
+      if (next != null) {
+        _enqueue(next);
+      } else {
+        setState(() {
+          _current = null;
+          _pending = null;
+        });
+      }
     });
     ref.listen(authStateProvider, (_, next) {
       if (next.value == false && (_current != null || _pending != null)) {

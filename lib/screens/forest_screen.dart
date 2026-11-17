@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/forest.dart';
 import '../providers/forest_provider.dart';
 import '../widgets/forest_landscape.dart';
 import '../widgets/forest_tree.dart';
+import '../widgets/forest_projects.dart';
+import '../widgets/forest_reward_overlay.dart';
+import '../providers/forest_reward_provider.dart';
 
 class ForestScreen extends ConsumerStatefulWidget {
   const ForestScreen({super.key});
@@ -33,18 +37,63 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
     }
   }
 
-  void _sheet(Widget child) => showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      useSafeArea: true,
-      constraints: const BoxConstraints(maxWidth: 640),
-      builder: (context) => SizedBox(
-          height: MediaQuery.sizeOf(context).height * .78, child: child));
+  void _sheet(Widget child) {
+    final container = ProviderScope.containerOf(context);
+    showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        useSafeArea: true,
+        constraints: const BoxConstraints(maxWidth: 640),
+        builder: (context) => UncontrolledProviderScope(
+            container: container,
+            child: SizedBox(
+                height: MediaQuery.sizeOf(context).height * .78,
+                child: child)));
+  }
 
   void _nursery() => _sheet(_Nursery(onPlanted: (id) {
         if (mounted) setState(() => _selected = id);
       }));
+
+  void _projects() => _sheet(ForestProjects(onTendTrees: () {
+        Navigator.pop(context);
+        final growing = ref
+            .read(forestProvider)
+            .trees
+            .where((t) => t.growth < 2)
+            .firstOrNull;
+        if (growing == null) {
+          _nursery();
+        } else {
+          setState(() => _selected = growing.id);
+        }
+      }));
+
+  void _debug() {
+    if (!kDebugMode) return;
+    if (ref.read(forestProvider.notifier).isSandbox) {
+      _sheet(const ForestSandboxControls());
+      return;
+    }
+    final initial = ref.read(forestProvider).events;
+    Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => ProviderScope(
+                  overrides: [
+                    forestProvider
+                        .overrideWith(() => ForestController.sandbox(initial)),
+                    forestRewardProvider
+                        .overrideWith(ForestRewardController.new),
+                  ],
+                  child: ForestRewardOverlay(
+                      child: Navigator(
+                    onGenerateRoute: (_) => MaterialPageRoute<void>(
+                        builder: (_) => const ForestScreen()),
+                  )),
+                )));
+  }
 
   void _collection() => _sheet(Consumer(builder: (context, ref, child) {
         final forest = ref.watch(forestProvider);
@@ -88,6 +137,8 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
               Text('Level ${forest.level}', style: text.headlineMedium),
               const SizedBox(height: 8),
               Text('${forest.xp} lifetime XP · ${forest.trees.length} trees'),
+              Text(
+                  '${forest.seeds} seeds · ${forest.water} water · ${forest.materials} materials'),
               const SizedBox(height: 16),
               LinearProgressIndicator(value: forest.levelProgress),
               const SizedBox(height: 8),
@@ -97,7 +148,8 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
               Text('A forest that stays with you', style: text.titleLarge),
               const SizedBox(height: 8),
               const Text(
-                  'Each completed task earns 10 XP, 1 seed, and 1 water. '
+                  'Each completed task earns 10 XP, 1 seed, 1 water, and 1 building material. '
+                  'Mature trees contribute 3 extra materials. '
                   'Your clearing expands with your level. Trees, levels, and resources never decay. '
                   'Undo keeps your rewards; the same occurrence never earns twice.'),
               const SizedBox(height: 20),
@@ -114,7 +166,7 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                             forest: forest, species: species)),
                     title: Text(species.label),
                     subtitle: Text(
-                        'Level ${species.unlockLevel} · ${species.seedCost} seeds'),
+                        'Level ${species.unlockLevel}${species == TreeSpecies.willow ? ' or woodland pond' : ''} · ${species.seedCost} seeds'),
                     trailing: Icon(forest.unlocked(species)
                         ? Icons.check_rounded
                         : Icons.lock_outline)),
@@ -133,69 +185,137 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
         onSelect: (id) => setState(() => _selected = id));
     final dock = _careDock(forest, selected);
     return Scaffold(
-      appBar: AppBar(title: const Text('Your forest'), actions: [
-        IconButton(
-            tooltip: 'Your trees (${forest.trees.length})',
-            onPressed: _collection,
-            icon: const Icon(Icons.forest_outlined)),
-      ]),
+      appBar: AppBar(
+          leading: ref.read(forestProvider.notifier).isSandbox
+              ? BackButton(
+                  onPressed: () =>
+                      Navigator.of(context, rootNavigator: true).pop())
+              : null,
+          title: Text(
+              ref.read(forestProvider.notifier).isSandbox
+                  ? 'Forest sandbox'
+                  : 'Your forest',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          actions: [
+            if (kDebugMode)
+              IconButton(
+                  tooltip: ref.read(forestProvider.notifier).isSandbox
+                      ? 'Sandbox controls'
+                      : 'Open debug sandbox',
+                  onPressed: _debug,
+                  icon: const Icon(Icons.bug_report_outlined)),
+            IconButton(
+                tooltip: 'Your trees (${forest.trees.length})',
+                onPressed: _collection,
+                icon: const Icon(Icons.forest_outlined)),
+          ]),
       body: SafeArea(
           top: false,
           bottom: false,
-          child: Column(children: [
-            Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                        spacing: 8,
-                        runSpacing: 0,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          ActionChip(
-                              avatar: const Icon(Icons.auto_awesome_outlined,
-                                  size: 18),
-                              label: Text('Level ${forest.level}'),
-                              onPressed: _progress),
-                          Chip(
-                              avatar: const Icon(Icons.eco_outlined, size: 18),
-                              label: Text('${forest.seeds} seeds')),
-                          Chip(
-                              avatar: const Icon(Icons.water_drop_outlined,
-                                  size: 18),
-                              label: Text('${forest.water} water')),
-                        ]),
-                    const SizedBox(height: 4),
-                    LinearProgressIndicator(
-                        value: forest.levelProgress,
-                        semanticsLabel: 'Progress to level ${forest.level + 1}',
-                        semanticsValue:
-                            '${(forest.levelProgress * 100).round()}%'),
-                    const SizedBox(height: 6),
-                    Text(
-                        forest.nextUnlock == null
-                            ? 'Your clearing keeps growing'
-                            : 'Next: ${forest.nextUnlock!.label} at level ${forest.nextUnlock!.unlockLevel}',
-                        style: text.bodySmall),
-                  ],
-                )),
-            Expanded(child: LayoutBuilder(builder: (context, constraints) {
-              if (constraints.maxWidth >= 760 ||
-                  (constraints.maxWidth >= 540 &&
-                      constraints.maxHeight < 420)) {
-                return Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: scene),
-                      SizedBox(
-                          width: 300,
-                          child: SingleChildScrollView(child: dock)),
-                    ]);
-              }
-              return Column(children: [Expanded(child: scene), dock]);
-            })),
-          ])),
+          child: LayoutBuilder(builder: (context, available) {
+            final compact = available.maxWidth < 360 ||
+                available.maxHeight < 620 ||
+                MediaQuery.textScalerOf(context).scale(16) > 20;
+            return Column(children: [
+              if (ref.read(forestProvider.notifier).isSandbox)
+                Material(
+                    color: Theme.of(context).colorScheme.tertiaryContainer,
+                    child: Center(
+                        child: TextButton.icon(
+                            onPressed: _debug,
+                            icon: const Icon(Icons.tune, size: 18),
+                            label:
+                                const Text('Sandbox · temporary progress')))),
+              if (compact)
+                Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(children: [
+                      Row(children: [
+                        TextButton(
+                            onPressed: _progress,
+                            child: Text('Level ${forest.level}')),
+                        Expanded(
+                            child: Wrap(spacing: 8, children: [
+                          Text('${forest.seeds} seeds', style: text.bodySmall),
+                          Text('${forest.water} water', style: text.bodySmall),
+                        ])),
+                        IconButton(
+                            key: const ValueKey('forest-project-summary'),
+                            tooltip: 'Sanctuary projects',
+                            onPressed: _projects,
+                            icon: const Icon(Icons.construction_outlined)),
+                      ]),
+                      LinearProgressIndicator(value: forest.levelProgress),
+                    ]))
+              else
+                Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                            spacing: 8,
+                            runSpacing: 0,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              ActionChip(
+                                  avatar: const Icon(
+                                      Icons.auto_awesome_outlined,
+                                      size: 18),
+                                  label: Text('Level ${forest.level}'),
+                                  onPressed: _progress),
+                              Chip(
+                                  avatar:
+                                      const Icon(Icons.eco_outlined, size: 18),
+                                  label: Text('${forest.seeds} seeds')),
+                              Chip(
+                                  avatar: const Icon(Icons.water_drop_outlined,
+                                      size: 18),
+                                  label: Text('${forest.water} water')),
+                            ]),
+                        const SizedBox(height: 4),
+                        LinearProgressIndicator(
+                            value: forest.levelProgress,
+                            semanticsLabel:
+                                'Progress to level ${forest.level + 1}',
+                            semanticsValue:
+                                '${(forest.levelProgress * 100).round()}%'),
+                        const SizedBox(height: 6),
+                        Text(
+                            forest.nextUnlock == null
+                                ? 'Your clearing keeps growing'
+                                : 'Next: ${forest.nextUnlock!.label} at level ${forest.nextUnlock!.unlockLevel}',
+                            style: text.bodySmall),
+                        ForestProjectSummary(forest: forest, onTap: _projects),
+                      ],
+                    )),
+              Expanded(child: LayoutBuilder(builder: (context, constraints) {
+                if (constraints.maxWidth >= 760 ||
+                    (constraints.maxWidth >= 540 &&
+                        constraints.maxHeight < 420)) {
+                  return Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: scene),
+                        SizedBox(
+                            width: 300,
+                            child: SingleChildScrollView(child: dock)),
+                      ]);
+                }
+                return Column(children: [
+                  Expanded(child: scene),
+                  if (compact)
+                    ConstrainedBox(
+                        constraints: BoxConstraints(
+                            maxHeight: constraints.maxHeight * .48),
+                        child: SingleChildScrollView(child: dock))
+                  else
+                    dock
+                ]);
+              })),
+            ]);
+          })),
     );
   }
 
@@ -347,7 +467,7 @@ class _NurseryState extends ConsumerState<_Nursery> {
                       Text(
                           unlocked
                               ? '${species.seedCost} seeds · 2 water to grow'
-                              : 'Unlocks at level ${species.unlockLevel}',
+                              : 'Unlocks at level ${species.unlockLevel}${species == TreeSpecies.willow ? ' or restore the pond' : ''}',
                           style: text.bodySmall),
                       const SizedBox(height: 8),
                       FilledButton.icon(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/forest.dart';
 import 'forest_scene_geometry.dart';
 import 'forest_tree.dart';
+import 'forest_habitat_art.dart';
 
 typedef _Camera = ({Offset origin, double scale});
 
@@ -59,7 +60,7 @@ class _ForestLandscapeState extends State<ForestLandscape> {
                   child: RepaintBoundary(
                       child: TweenAnimationBuilder<double>(
                 key: ValueKey(
-                    '${selected.id}-${selected.growth}-${trees.length}'),
+                    '${selected.id}-${selected.growth}-${trees.length}-${widget.forest.projects.length}'),
                 tween: Tween(begin: reduced ? 1 : 0, end: 1),
                 duration:
                     reduced ? Duration.zero : const Duration(milliseconds: 850),
@@ -164,17 +165,6 @@ class _ForestPainter extends CustomPainter {
   }
 
   Offset _p(double x, double y, [double z = 0]) => projectForestPoint(x, y, z);
-
-  void _disk(Canvas canvas, Offset center, double radius, Color color) {
-    _poly(
-        canvas,
-        [
-          for (var i = 0; i < 20; i++)
-            _p(center.dx + math.cos(i * math.pi / 10) * radius,
-                center.dy + math.sin(i * math.pi / 10) * radius)
-        ],
-        color);
-  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -292,20 +282,6 @@ class _ForestPainter extends CustomPainter {
           ..strokeWidth = 12
           ..color = dark ? const Color(0xFFA8A077) : const Color(0xFFE8DCAC));
     _paint.style = PaintingStyle.fill;
-    final pond = Offset(-r * .43, -r * .1);
-    _disk(canvas, pond, 63,
-        dark ? const Color(0xFF839577) : const Color(0xFFD4D8AD));
-    _disk(canvas, pond, 54, const Color(0xFF5D9E95));
-    _disk(canvas, pond + const Offset(-8, -7), 42, const Color(0xFF83BDB0));
-    for (var i = 0; i < 4; i++) {
-      final start = _p(pond.dx - 24 + i * 9, pond.dy - 18 + i * 12);
-      canvas.drawLine(
-          start,
-          start + const Offset(21, 0),
-          _paint
-            ..color = const Color(0x88D3E6C8)
-            ..strokeWidth = 2);
-    }
     for (var i = 0; i < 65; i++) {
       final angle = i * 2.3999632;
       final radius = r * math.sqrt((i + 1) / 70);
@@ -323,70 +299,68 @@ class _ForestPainter extends CustomPainter {
       }
     }
     canvas.restore();
-    // Shaded stones along the bank give the ground a readable height reference.
-    for (var i = 0; i < 7; i++) {
-      final p =
-          _p(pond.dx + math.cos(i * .8) * 61, pond.dy + math.sin(i * .8) * 61);
-      _poly(
-          canvas,
-          [
-            p + const Offset(-7, 0),
-            p + const Offset(1, 5),
-            p + const Offset(8, 0),
-            p + const Offset(1, -8)
-          ],
-          const Color(0xFF8C9C87));
-      _poly(
-          canvas,
-          [
-            p + const Offset(-7, 0),
-            p + const Offset(1, -8),
-            p + const Offset(2, -1)
-          ],
-          const Color(0xFFC8CBB3));
-    }
     final trees = forest.trees.toList()
       ..sort((a, b) {
         final pa = forestGroundPosition(a), pb = forestGroundPosition(b);
         return (pa.dx + pa.dy).compareTo(pb.dx + pb.dy);
       });
-    for (final tree in trees) {
-      final ground = forestGroundPosition(tree);
-      final base = _p(ground.dx, ground.dy);
-      if (tree.id == selectedId) {
-        canvas.drawOval(
-            Rect.fromCenter(
-                center: base + const Offset(0, 3), width: 65, height: 23),
-            _paint
-              ..color = const Color(0x99FFEDAA)
-              ..style = PaintingStyle.fill);
-        canvas.drawOval(
-            Rect.fromCenter(
-                center: base + const Offset(0, 3), width: 65, height: 23),
-            _paint
-              ..color = const Color(0xFFFFF2C1)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 2);
-        _paint.style = PaintingStyle.fill;
-      }
-      paintForestTree(canvas, base, tree.species, tree.growth,
-          scale: tree.id == selectedId ? .92 + pulse * .08 : 1);
-      if (tree.id == selectedId &&
-          pulse < .99 &&
-          forest.events.isNotEmpty &&
-          forest.events.last.kind == 'water' &&
-          forest.events.last.treeId == tree.id) {
-        for (var i = 0; i < 5; i++) {
-          final t = (pulse + i * .15) % 1;
-          final point = base + Offset(math.sin(i * 2) * 28, -130 + t * 85);
-          canvas.drawOval(
-              Rect.fromCenter(center: point, width: 5, height: 9),
-              _paint
-                ..color = const Color(0xFF9ED5E1).withValues(alpha: 1 - pulse));
-        }
-      }
+    final objects = <({double depth, VoidCallback paint})>[
+      for (final project in ForestProject.values)
+        if (forest.hasProject(project) || forest.activeProject == project)
+          (
+            depth: habitatGround(project).dx + habitatGround(project).dy,
+            paint: () => paintForestHabitat(canvas, project,
+                built: forest.hasProject(project),
+                progress: forest.projectProgress(project),
+                arrival: pulse)
+          ),
+      for (final tree in trees)
+        (
+          depth: forestGroundPosition(tree).dx + forestGroundPosition(tree).dy,
+          paint: () => _paintTree(canvas, tree)
+        ),
+    ]..sort((a, b) => a.depth.compareTo(b.depth));
+    for (final object in objects) {
+      object.paint();
     }
     canvas.restore();
+  }
+
+  void _paintTree(Canvas canvas, ForestTree tree) {
+    final ground = forestGroundPosition(tree);
+    final base = _p(ground.dx, ground.dy);
+    if (tree.id == selectedId) {
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: base + const Offset(0, 3), width: 65, height: 23),
+          _paint
+            ..color = const Color(0x99FFEDAA)
+            ..style = PaintingStyle.fill);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: base + const Offset(0, 3), width: 65, height: 23),
+          _paint
+            ..color = const Color(0xFFFFF2C1)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2);
+      _paint.style = PaintingStyle.fill;
+    }
+    paintForestTree(canvas, base, tree.species, tree.growth,
+        scale: tree.id == selectedId ? .92 + pulse * .08 : 1);
+    if (tree.id == selectedId &&
+        pulse < .99 &&
+        forest.events.isNotEmpty &&
+        forest.events.last.kind == 'water' &&
+        forest.events.last.treeId == tree.id) {
+      for (var i = 0; i < 5; i++) {
+        final t = (pulse + i * .15) % 1;
+        final point = base + Offset(math.sin(i * 2) * 28, -130 + t * 85);
+        canvas.drawOval(
+            Rect.fromCenter(center: point, width: 5, height: 9),
+            _paint
+              ..color = const Color(0xFF9ED5E1).withValues(alpha: 1 - pulse));
+      }
+    }
   }
 
   @override

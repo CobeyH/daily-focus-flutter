@@ -151,12 +151,12 @@ The [nursery preview](docs/images/forest-tree-discovery.png) illustrates these r
 | Birch | 2 | 4 |
 | Oak | 3 | 5 |
 | Maple | 5 | 6 |
-| Willow | 8 | 7 |
+| Willow | 8, or restore the woodland pond | 7 |
 | Cedar | 12 | 9 |
 | Redwood | 16 | 12 |
 
 The forest fills a dedicated screen with a 2.5D isometric clearing, raised earth,
-faceted tree canopies, shadows, a pond, and paths. It automatically frames the
+faceted tree canopies, shadows, earned habitats, and paths. It automatically frames the
 whole clearing; there is no draggable map inside a scrolling page. Tap a tree to
 select it, use **Closer look at selected tree** for an automatic close-up, and
 **View whole forest** to return. The arrow buttons and **Your trees** collection
@@ -177,6 +177,62 @@ Each tree grows from seedling to young to fully grown with two water actions.
 Trees and append-only reward, planting, and watering actions persist locally and
 sync to the account's private
 `users/{uid}/forest` collection. Stable reward IDs deduplicate across devices.
+
+## Sanctuary projects
+
+Completed task rewards now also contribute **1 building material** each. Every
+fully grown tree contributes **3 materials** once, including existing mature
+trees. Materials are calculated from permanent forest events, so reloading,
+undo, and syncing do not collect them again.
+
+Tap the current project below the XP bar (the construction button on compact
+layouts) to see the project path, requirements, and rewards. Choose any future
+project as your goal, look up its prerequisite, or tap the mature-tree
+requirement to return to tending a growing tree. Requirements are checked again
+when building; resources are spent only when the project is built. Multiple
+build taps are serialized, and failed local saves roll back.
+
+| Project | Requirements | Result |
+| --- | --- | --- |
+| Woodland nursery | 6 materials, 2 mature trees | Permanent nursery, 8 bonus seeds, opens songbird project |
+| Songbird haven | Nursery, 12 materials, 3 mature trees | Birdhouse and resident birds, opens pond project |
+| Woodland pond | Songbird haven, 20 materials, 4 mature trees, 8 water | Pond and resident frogs, willow planting before level 8 |
+
+Tree requirements count existing trees; trees are never consumed. Projects and
+residents are permanent, with no upkeep or decay. The selected project appears
+as a construction foundation that fills with progress. Completed habitats are
+painted into the same isometric scene, depth-sorted with trees, and arrive with
+a brief animation that respects reduced-motion settings.
+
+### Debug sandbox
+
+In a debug build, open **Your forest → bug icon**. This opens a temporary copy
+of your forest with a clearly marked sandbox banner. Tap the banner or bug
+icon for controls:
+
+- **Force next level**: reach the next XP boundary and play the level-up animation.
+- **Grant 50 of each resource**: add seeds, water, and materials without adding XP.
+- **Simulate a task completion**: test XP feedback without changing a real task.
+- **Grow four mature trees**: create/grow four trees and grant a resource pack to try projects quickly.
+- **Reach level 16**: reveal all tree varieties for testing; future growth stages remain hidden.
+- **Reset sandbox**: start again with a fresh forest and clear queued XP feedback.
+
+For a quick tour, grow four mature trees, open the project panel, and build the
+nursery, birdhouse, and pond in order. The sandbox has its own navigation and
+reward overlay, so XP celebrations remain visible above its sheets. Use the
+back arrow to leave and discard everything. Sandbox actions never write local
+storage, call cloud sync, or modify task completion history. Debug controls are
+absent in release/profile builds, and controller guards reject cheats on real
+forests even in debug builds.
+
+Sanctuary project/goal events sync through the existing owner-only forest
+collection. This PR includes updated Firestore rules and emulator coverage;
+**deploy the rules before shipping project sync**. Live rules are not changed
+by building, testing, or using the sandbox.
+
+Rendered previews: [completed sanctuary](docs/images/forest-sanctuary-complete.png),
+[project requirements](docs/images/forest-sanctuary-projects.png), and
+[debug controls](docs/images/forest-sanctuary-debug.png).
 
 ## Firebase backend
 
