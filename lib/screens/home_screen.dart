@@ -332,10 +332,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     if (_view == 'Today' && displayedUpcoming.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      Text('Upcoming tasks', style: text.titleLarge),
-                      const SizedBox(height: 12),
-                      for (final occurrence in displayedUpcoming)
-                        _pendingCard(occurrence),
+                      ExpansionTile(
+                          key: const PageStorageKey('upcoming-today'),
+                          initiallyExpanded: false,
+                          tilePadding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          title: Text(
+                              'Upcoming tasks (${upcomingToday.length})',
+                              style: text.titleLarge),
+                          shape: const Border(),
+                          collapsedShape: const Border(),
+                          children: [
+                            for (final occurrence in displayedUpcoming)
+                              _pendingCard(occurrence),
+                          ]),
                     ],
                     if (completed.isNotEmpty)
                       Padding(

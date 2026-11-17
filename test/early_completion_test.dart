@@ -209,13 +209,15 @@ void main() {
     await tester.pumpAndSettle();
     final container =
         ProviderScope.containerOf(tester.element(find.byType(HomeScreen)));
-    expect(find.text('Upcoming tasks'), findsOneWidget);
+    expect(find.text('Upcoming tasks (1)'), findsOneWidget);
+    await tester.tap(find.text('Upcoming tasks (1)'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Complete'));
     await tester.tap(find.text('Complete'));
     await tester.pump();
     expect(find.byType(CompletionWaterFlight), findsOneWidget);
     await tester.pumpAndSettle();
-    expect(find.text('Upcoming tasks'), findsNothing);
+    expect(find.text('Upcoming tasks (1)'), findsNothing);
     expect(find.text('Completed & skipped (1)'), findsOneWidget);
     await tester.ensureVisible(find.text('Completed & skipped (1)'));
     await tester.tap(find.text('Completed & skipped (1)'));
@@ -223,7 +225,7 @@ void main() {
     await tester.ensureVisible(find.text('Undo'));
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();
-    expect(find.text('Upcoming tasks'), findsOneWidget);
+    expect(find.text('Upcoming tasks (1)'), findsOneWidget);
     await tester.ensureVisible(find.text('Complete'));
     await tester.tap(find.text('Complete'));
     await tester.pumpAndSettle();
