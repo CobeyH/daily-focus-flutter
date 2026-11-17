@@ -115,7 +115,7 @@ void main() {
         findsOneWidget);
     expect(
         find.descendant(of: card('Evening'), matching: find.text('Complete')),
-        findsNothing);
+        findsOneWidget);
     expect(tester.getTopLeft(find.text('Evening')).dy,
         greaterThan(tester.getTopLeft(find.text('Upcoming tasks')).dy));
     now = DateTime(2026, 11, 13, 18);
@@ -151,7 +151,7 @@ void main() {
     expect(find.text('Upcoming tasks'), findsOneWidget);
     expect(
         find.descendant(of: card('Evening'), matching: find.text('Complete')),
-        findsNothing);
+        findsOneWidget);
     expect(AppStorage(prefs).loadTasks().last.timing.slot, DaySlot.evening);
     expect(tester.takeException(), isNull);
   });

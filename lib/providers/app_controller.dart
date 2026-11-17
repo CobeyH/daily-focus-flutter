@@ -183,7 +183,9 @@ class AppController extends Notifier<AppState> {
       {DateTime? now, String? occurrenceKey}) async {
     final DateTime time = now ?? ref.read(timeSourceProvider)();
     final occurrence = _target(task, time, occurrenceKey);
-    if (occurrence == null || !occurrence.visible || occurrence.done) return;
+    if (occurrence == null || !occurrence.canComplete || occurrence.done) {
+      return;
+    }
     await _record(
         task,
         occurrence,
@@ -211,7 +213,9 @@ class AppController extends Notifier<AppState> {
       {DateTime? now, String? occurrenceKey}) async {
     final DateTime time = now ?? ref.read(timeSourceProvider)();
     final occurrence = _target(task, time, occurrenceKey);
-    if (occurrence == null || !occurrence.visible || occurrence.done) return;
+    if (occurrence == null || !occurrence.canComplete || occurrence.done) {
+      return;
+    }
     await _record(task, occurrence, occurrence.goal, time);
     if (task.type == TaskType.minutes) {
       await ref.read(timerControllerProvider.notifier).clearFor(task.id);
