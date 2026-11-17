@@ -286,6 +286,11 @@ void main() {
         {'id': 'debug-pack', 'kind': 'debugResources'},
         {'id': 'debug-budget', 'kind': 'debugChoiceBudget'},
         {
+          'id': 'goal_restoration',
+          'kind': 'restorationGoal',
+          'restoration': 'grass'
+        },
+        {
           'id': 'project_pond',
           'kind': 'choiceProject',
           'project': 'pond',

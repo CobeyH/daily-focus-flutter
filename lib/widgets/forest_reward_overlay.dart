@@ -301,20 +301,14 @@ class _ForestRewardCelebrationState extends State<ForestRewardCelebration>
                             Text(
                                 '${frame.xp} / ${frame.span} XP to level ${frame.level + 1}',
                                 style: text.bodySmall),
-                            if (widget.reward.after.resourceChoices)
+                            if (widget.reward.after.restorationGoals)
                               Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
-                                      'Earned ${(widget.reward.after.resources - widget.reward.before.resources).yieldLabel}',
+                                      'Earned ${widget.reward.after.balanceFor(widget.reward.after.resources - widget.reward.before.resources)}',
                                       key: const ValueKey(
                                           'forest-resource-reward'),
                                       style: text.bodySmall)),
-                            for (final bonus in widget.reward.habitatBonuses)
-                              Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(bonus,
-                                      key: ValueKey('habitat-bonus-$bonus'),
-                                      style: text.labelLarge)),
                             if (frame.levelUp)
                               Padding(
                                   padding: const EdgeInsets.only(top: 4),

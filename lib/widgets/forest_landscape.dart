@@ -1,9 +1,11 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/forest.dart';
 import 'forest_scene_geometry.dart';
 import 'forest_tree.dart';
 import 'forest_habitat_art.dart';
+import 'forest_ecology_art.dart';
 
 typedef _Camera = ({Offset origin, double scale});
 
@@ -22,6 +24,50 @@ class ForestLandscape extends StatefulWidget {
 
 class _ForestLandscapeState extends State<ForestLandscape> {
   bool _closeUp = false;
+  String? _discovery;
+  int _discoveryCount = 0;
+  Timer? _discoveryTimer;
+  @override
+  void didUpdateWidget(covariant ForestLandscape oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.forest.restorationGoals ||
+        oldWidget.forest.projects
+            .difference(widget.forest.projects)
+            .isNotEmpty ||
+        oldWidget.forest.restorations
+            .difference(widget.forest.restorations)
+            .isNotEmpty) {
+      _discoveryTimer?.cancel();
+      _discovery = null;
+    }
+    final newHabitats =
+        widget.forest.projects.difference(oldWidget.forest.projects);
+    final newLife =
+        widget.forest.restorations.difference(oldWidget.forest.restorations);
+    if (!widget.forest.restorationGoals ||
+        (newHabitats.isEmpty && newLife.isEmpty)) {
+      return;
+    }
+    final discoveries = [
+      for (final p in newHabitats) widget.forest.planFor(p).benefit,
+      for (final m in newLife) m.reward
+    ];
+    _discoveryCount = discoveries.length;
+    _discovery = discoveries.length > 2
+        ? '${newHabitats.length} habitats revealed · ${newLife.length} ecosystem milestones reached'
+        : discoveries.join('\n');
+    _discoveryTimer?.cancel();
+    _discoveryTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _discovery = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _discoveryTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   void reassemble() {
     clearForestTreePictures();
@@ -60,7 +106,7 @@ class _ForestLandscapeState extends State<ForestLandscape> {
                   child: RepaintBoundary(
                       child: TweenAnimationBuilder<double>(
                 key: ValueKey(
-                    '${selected.id}-${selected.growth}-${trees.length}-${widget.forest.projects.length}'),
+                    '${selected.id}-${selected.growth}-${trees.length}-${widget.forest.projects.length}-${widget.forest.restorations.length}'),
                 tween: Tween(begin: reduced ? 1 : 0, end: 1),
                 duration:
                     reduced ? Duration.zero : const Duration(milliseconds: 850),
@@ -95,6 +141,33 @@ class _ForestLandscapeState extends State<ForestLandscape> {
                     icon: const Icon(Icons.center_focus_strong_outlined)),
               ]),
             )),
+        if (_discovery != null)
+          Positioned(
+              left: 12,
+              right: 12,
+              bottom: size.height < 180 ? 8 : 36,
+              child: IgnorePointer(
+                  child: Semantics(
+                      liveRegion: true,
+                      label: _discovery,
+                      excludeSemantics: true,
+                      child: Material(
+                          color:
+                              Theme.of(context).colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(16),
+                          elevation: 3,
+                          child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                  size.height < 180
+                                      ? '$_discoveryCount forest ${_discoveryCount == 1 ? 'milestone' : 'milestones'} reached'
+                                      : _discovery!,
+                                  maxLines: size.height < 180 ? 2 : null,
+                                  overflow: TextOverflow.ellipsis,
+                                  key: const ValueKey('forest-discovery'),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelLarge)))))),
         Positioned(
             left: 16,
             bottom: 10,
@@ -247,18 +320,27 @@ class _ForestPainter extends CustomPainter {
     canvas.drawPath(
         top,
         _paint
-          ..color = dark ? const Color(0xFF537544) : const Color(0xFFB1C986));
+          ..color = forest.restorationGoals
+              ? (forest.restorations.contains(ForestRestoration.grass)
+                  ? (dark ? const Color(0xFF48643E) : const Color(0xFFA7BF80))
+                  : (dark ? const Color(0xFF685F47) : const Color(0xFFC3B78F)))
+              : (dark ? const Color(0xFF537544) : const Color(0xFFB1C986)));
     canvas.save();
     canvas.clipPath(top);
-    for (var x = -r; x < r; x += 60) {
-      for (var y = -r; y < r; y += 60) {
-        final index = ((x + r) / 60 + (y + r) / 60).round();
-        _poly(
-            canvas,
-            [_p(x, y), _p(x + 60, y), _p(x + 60, y + 60), _p(x, y + 60)],
-            (index.isEven ? Colors.white : const Color(0xFF2E6439))
-                .withValues(alpha: .035));
+    if (!forest.restorationGoals) {
+      for (var x = -r; x < r; x += 60) {
+        for (var y = -r; y < r; y += 60) {
+          final index = ((x + r) / 60 + (y + r) / 60).round();
+          _poly(
+              canvas,
+              [_p(x, y), _p(x + 60, y), _p(x + 60, y + 60), _p(x, y + 60)],
+              (index.isEven ? Colors.white : const Color(0xFF2E6439))
+                  .withValues(alpha: .035));
+        }
       }
+    }
+    if (forest.restorationGoals) {
+      paintForestGroundcover(canvas, forest, r, dark);
     }
     final trail = Path()
       ..moveTo(_p(-r, r * .15).dx, _p(-r, r * .15).dy)
@@ -282,20 +364,22 @@ class _ForestPainter extends CustomPainter {
           ..strokeWidth = 12
           ..color = dark ? const Color(0xFFA8A077) : const Color(0xFFE8DCAC));
     _paint.style = PaintingStyle.fill;
-    for (var i = 0; i < 65; i++) {
-      final angle = i * 2.3999632;
-      final radius = r * math.sqrt((i + 1) / 70);
-      final p = _p(math.cos(angle) * radius, math.sin(angle) * radius);
-      canvas.drawLine(
-          p,
-          p + const Offset(-2, -5),
-          _paint
-            ..color = const Color(0x775E873F)
-            ..strokeWidth = 1.6);
-      canvas.drawLine(p, p + const Offset(3, -4), _paint);
-      if (i % 8 == 0) {
-        canvas.drawCircle(p + const Offset(2, -4), 2.2,
-            _paint..color = const Color(0xFFECE0B2));
+    if (!forest.restorationGoals) {
+      for (var i = 0; i < 65; i++) {
+        final angle = i * 2.3999632;
+        final radius = r * math.sqrt((i + 1) / 70);
+        final p = _p(math.cos(angle) * radius, math.sin(angle) * radius);
+        canvas.drawLine(
+            p,
+            p + const Offset(-2, -5),
+            _paint
+              ..color = const Color(0x775E873F)
+              ..strokeWidth = 1.6);
+        canvas.drawLine(p, p + const Offset(3, -4), _paint);
+        if (i % 8 == 0) {
+          canvas.drawCircle(p + const Offset(2, -4), 2.2,
+              _paint..color = const Color(0xFFECE0B2));
+        }
       }
     }
     canvas.restore();
@@ -347,6 +431,9 @@ class _ForestPainter extends CustomPainter {
     }
     paintForestTree(canvas, base, tree.species, tree.growth,
         scale: tree.id == selectedId ? .92 + pulse * .08 : 1);
+    if (forest.restorations.contains(ForestRestoration.lichen)) {
+      paintForestLichen(canvas, base, tree);
+    }
     if (tree.id == selectedId &&
         pulse < .99 &&
         forest.events.isNotEmpty &&

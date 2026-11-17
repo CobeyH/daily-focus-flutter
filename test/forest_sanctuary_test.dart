@@ -339,10 +339,21 @@ void main() {
     expect(find.text('Forest sandbox'), findsOneWidget);
     await tester.tap(find.byTooltip('Sandbox controls'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Grant 50 of each resource'), 150,
+        scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(find.text('Grant 50 of each resource'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Grant 50 of each resource'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('50 seeds · 50 water · 50 materials'),
-        findsOneWidget);
+    await tester.scrollUntilVisible(
+        find.textContaining('50 materials · 50 water'), -150,
+        scrollable: find.byType(Scrollable).last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('50 materials · 50 water'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Force next level'), 150,
+        scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(find.text('Force next level'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Force next level'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1600));

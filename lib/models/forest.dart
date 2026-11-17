@@ -12,15 +12,6 @@ enum TreeSpecies {
   final String label;
   final int unlockLevel, seedCost;
   const TreeSpecies(this.label, this.unlockLevel, this.seedCost);
-  ForestResources get maturityYield => switch (this) {
-        pine => const ForestResources(materials: 4),
-        birch => const ForestResources(seeds: 6),
-        oak => const ForestResources(materials: 6),
-        maple => const ForestResources(seeds: 10),
-        willow => const ForestResources(water: 6),
-        cedar => const ForestResources(materials: 8),
-        redwood => const ForestResources(materials: 12),
-      };
 }
 
 enum ForestProject {
@@ -49,6 +40,18 @@ enum ForestProject {
       };
 }
 
+enum ForestRestoration {
+  grass('Living forest floor', 3, false, 'Grass spreads across the clearing'),
+  lichen('A diverse woodland', 3, true, 'Lichen appears on mature tree trunks'),
+  wildflowers(
+      'A flourishing grove', 8, false, 'Wildflowers bloom among the grass');
+
+  final String label, reward;
+  final int target;
+  final bool diversity;
+  const ForestRestoration(this.label, this.target, this.diversity, this.reward);
+}
+
 class ForestResources {
   final int seeds, water, materials;
   const ForestResources({this.seeds = 0, this.water = 0, this.materials = 0});
@@ -75,16 +78,18 @@ class ForestResources {
 }
 
 class ForestProjectPlan {
-  final ForestResources cost, bonus;
+  final ForestResources cost;
   final int matureTrees;
+  final TreeSpecies? species;
   final ForestProject? prerequisite;
   final String benefit;
-  const ForestProjectPlan(
-      {required this.cost,
-      required this.matureTrees,
-      required this.benefit,
-      this.prerequisite,
-      this.bonus = const ForestResources()});
+  const ForestProjectPlan({
+    required this.cost,
+    required this.matureTrees,
+    required this.benefit,
+    this.prerequisite,
+    this.species,
+  });
 }
 
 /// Append-only actions. Completion IDs are stable across devices and undo.
@@ -95,7 +100,7 @@ class ForestEvent {
   final TreeSpecies? species;
   final int? plot;
   final ForestProject? project;
-  final int? atCompletion;
+  final ForestRestoration? restoration;
   const ForestEvent(
       {required this.id,
       required this.kind,
@@ -103,7 +108,7 @@ class ForestEvent {
       this.species,
       this.plot,
       this.project,
-      this.atCompletion});
+      this.restoration});
   static String rewardId(String taskId, String dateKey) =>
       'reward_${taskId}_$dateKey';
   Map<String, dynamic> toJson() => {
@@ -113,14 +118,16 @@ class ForestEvent {
         if (species != null) 'species': species!.name,
         if (plot != null) 'plot': plot,
         if (project != null) 'project': project!.name,
-        if (atCompletion != null) 'atCompletion': atCompletion
+        if (restoration != null) 'restoration': restoration!.name
       };
   factory ForestEvent.fromJson(Map<String, dynamic> json) => ForestEvent(
       id: json['id'] as String,
       kind: json['kind'] as String,
       treeId: json['treeId'] as String?,
       plot: (json['plot'] as num?)?.toInt(),
-      atCompletion: (json['atCompletion'] as num?)?.toInt(),
+      restoration: ForestRestoration.values
+          .where((r) => r.name == json['restoration'])
+          .firstOrNull,
       project: ForestProject.values
           .where((p) => p.name == json['project'])
           .firstOrNull,
@@ -144,12 +151,12 @@ class ForestTree {
 
 class ForestState {
   final List<ForestEvent> events;
-  // The resource-choice economy is a local sandbox experiment only.
-  final bool resourceChoices;
+  // Restoration achievements are a local sandbox experiment only.
+  final bool restorationGoals;
   late final Map<String, ForestEvent> byId = {
     for (final event in events) event.id: event
   };
-  ForestState(Iterable<ForestEvent> events, {this.resourceChoices = false})
+  ForestState(Iterable<ForestEvent> events, {this.restorationGoals = false})
       : events = List.unmodifiable(events);
   int get completions => byId.values.where((e) => e.kind == 'reward').length;
   static int xpForLevel(int level) => (level - 1) * (level + 3) * 10;
@@ -162,22 +169,38 @@ class ForestState {
       TreeSpecies.values.where((s) => !unlocked(s)).firstOrNull;
   bool unlocked(TreeSpecies species) =>
       level >= species.unlockLevel ||
-      (species == TreeSpecies.willow && hasProject(ForestProject.pond));
+      (!restorationGoals &&
+          species == TreeSpecies.willow &&
+          hasProject(ForestProject.pond));
 
-  late final Set<ForestProject> projects = byId.values
-      .where((e) =>
-          (e.kind == 'project' ||
-              (resourceChoices && e.kind == 'choiceProject')) &&
-          e.project != null)
-      .map((e) => e.project!)
-      .toSet();
+  late final Set<ForestProject> projects = Set.unmodifiable(restorationGoals
+      ? ForestProject.values.where(
+          (p) => matureCount(planFor(p).species!) >= planFor(p).matureTrees)
+      : byId.values
+          .where((e) => e.kind == 'project' && e.project != null)
+          .map((e) => e.project!));
+  int matureCount(TreeSpecies species) =>
+      trees.where((t) => t.species == species && t.growth == 2).length;
+  int growingCount(TreeSpecies species) =>
+      trees.where((t) => t.species == species && t.growth < 2).length;
+  Set<TreeSpecies> get matureSpecies =>
+      trees.where((t) => t.growth == 2).map((t) => t.species).toSet();
+  int restorationCount(ForestRestoration milestone) =>
+      milestone.diversity ? matureSpecies.length : matureTrees;
+  late final Set<ForestRestoration> restorations = Set.unmodifiable(
+      restorationGoals
+          ? ForestRestoration.values
+              .where((r) => restorationCount(r) >= r.target)
+          : <ForestRestoration>[]);
+  double restorationProgress(ForestRestoration milestone) =>
+      math.min(1, restorationCount(milestone) / milestone.target);
   bool hasProject(ForestProject project) => projects.contains(project);
   int get matureTrees => trees.where((t) => t.growth == 2).length;
   // Sandbox packs are never written to disk or accepted by Firestore rules.
   int get _debugResources =>
       byId.values.where((e) => e.kind == 'debugResources').length * 50;
   ForestProjectPlan planFor(ForestProject project) {
-    if (!resourceChoices) {
+    if (!restorationGoals) {
       return ForestProjectPlan(
           cost: ForestResources(
               materials: project.materialCost, water: project.waterCost),
@@ -187,57 +210,54 @@ class ForestState {
     }
     return switch (project) {
       ForestProject.nursery => const ForestProjectPlan(
-          cost: ForestResources(materials: 8, water: 2),
-          matureTrees: 1,
-          bonus: ForestResources(materials: 2),
-          benefit: '+2 materials every 4 tasks · build habitats faster'),
+          cost: ForestResources(),
+          matureTrees: 3,
+          species: TreeSpecies.pine,
+          benefit: 'A woodland nursery appears in your forest'),
       ForestProject.birdhouse => const ForestProjectPlan(
-          cost: ForestResources(materials: 10),
-          matureTrees: 1,
-          bonus: ForestResources(seeds: 2),
-          benefit:
-              '+2 seeds every 4 tasks · plant more trees · resident songbirds'),
+          cost: ForestResources(),
+          matureTrees: 5,
+          species: TreeSpecies.maple,
+          benefit: 'A birdhouse appears and songbirds move in'),
       ForestProject.pond => const ForestProjectPlan(
-          cost: ForestResources(materials: 12, water: 6),
-          matureTrees: 1,
-          bonus: ForestResources(water: 2),
-          benefit:
-              '+2 water every 4 tasks · early willow planting · resident frogs'),
+          cost: ForestResources(),
+          matureTrees: 3,
+          species: TreeSpecies.willow,
+          benefit: 'A pond appears and frogs settle by the water'),
     };
   }
 
-  ForestResources maturityYield(TreeSpecies species) => resourceChoices
-      ? species.maturityYield
-      : const ForestResources(materials: 3);
+  ForestResources plantingCost(TreeSpecies species) => restorationGoals
+      ? ForestResources(materials: species.seedCost)
+      : ForestResources(seeds: species.seedCost);
+  bool canPlant(TreeSpecies species) =>
+      unlocked(species) &&
+      (restorationGoals ? materials : seeds) >= species.seedCost;
+  String balanceFor(ForestResources value) => restorationGoals
+      ? '${value.materials} materials · ${value.water} water'
+      : value.balance;
+  String get resourceBalance => balanceFor(resources);
 
   late final ForestResources resources = _resources();
   ForestResources _resources() {
-    final stock = _debugResources +
-        (resourceChoices &&
-                byId.values.any((e) => e.kind == 'debugChoiceBudget')
-            ? 3
-            : 0);
+    final stock = _debugResources;
     var total = ForestResources(
         seeds: completions + stock,
         water: completions + stock,
         materials: completions + stock);
     for (final tree in trees) {
-      if (tree.id != 'starter') {
-        total -= ForestResources(seeds: tree.species.seedCost);
-      }
+      if (tree.id != 'starter') total -= plantingCost(tree.species);
       total -= ForestResources(water: tree.growth);
-      if (tree.growth == 2) total += maturityYield(tree.species);
-    }
-    for (final project in projects) {
-      total -= planFor(project).cost;
-      if (!resourceChoices && project == ForestProject.nursery) {
-        total += const ForestResources(seeds: 8);
+      if (!restorationGoals && tree.growth == 2) {
+        total += const ForestResources(materials: 3);
       }
     }
-    if (resourceChoices) {
-      for (final event in byId.values
-          .where((e) => e.kind == 'choiceBonus' && e.project != null)) {
-        total += planFor(event.project!).bonus;
+    if (!restorationGoals) {
+      for (final project in projects) {
+        total -= planFor(project).cost;
+        if (project == ForestProject.nursery) {
+          total += const ForestResources(seeds: 8);
+        }
       }
     }
     return total.nonnegative;
@@ -246,74 +266,83 @@ class ForestState {
   int get materials => resources.materials;
   bool canBuild(ForestProject project) {
     final plan = planFor(project);
-    return !hasProject(project) &&
+    return !restorationGoals &&
+        !hasProject(project) &&
         (plan.prerequisite == null || hasProject(plan.prerequisite!)) &&
         matureTrees >= plan.matureTrees &&
         materials >= plan.cost.materials &&
         water >= plan.cost.water;
   }
 
-  int bonusIn(ForestProject project) {
-    final event = byId.values
-        .where((e) => e.kind == 'choiceProject' && e.project == project)
-        .firstOrNull;
-    return event == null
-        ? 4
-        : 4 - (completions - (event.atCompletion ?? completions)) % 4;
-  }
-
-  String? goalShortfall(ForestResources remaining, {ForestProject? building}) {
-    final goal = activeProject;
-    if (goal == null || goal == building) return null;
-    final missing = (planFor(goal).cost - remaining).nonnegative;
-    return missing.yieldLabel.isEmpty
-        ? null
-        : 'Goal: ${missing.yieldLabel} still needed for ${goal.label}.';
+  String speciesProgress(ForestProject project) {
+    final plan = planFor(project), species = plan.species!;
+    return '${matureCount(species)} / ${plan.matureTrees} mature ${species.label.toLowerCase()} trees';
   }
 
   bool helpsGoal(TreeSpecies species) {
-    final goal = activeProject;
-    if (goal == null || !unlocked(species)) return false;
-    final missing = (planFor(goal).cost - resources).nonnegative;
-    final yield = maturityYield(species);
-    return (missing.materials > 0 && yield.materials > 0) ||
-        (missing.water > 0 && yield.water > 0);
+    if (!unlocked(species)) return false;
+    if (activeProject != null) {
+      return planFor(activeProject!).species == species;
+    }
+    final milestone = activeRestoration;
+    if (milestone == null) return false;
+    return !milestone.diversity || !matureSpecies.contains(species);
+  }
+
+  String? get activeGoalTitle =>
+      activeProject?.label ?? activeRestoration?.label;
+  List<ForestEvent> get _goals => byId.values
+      .where((e) =>
+          e.kind == 'goal' || (restorationGoals && e.kind == 'restorationGoal'))
+      .toList()
+    ..sort((a, b) => a.id.compareTo(b.id));
+  ForestRestoration? get activeRestoration {
+    final goal = _goals.lastOrNull?.restoration;
+    return goal != null && !restorations.contains(goal) ? goal : null;
   }
 
   String? get goalAdvice {
-    final goal = activeProject;
-    if (goal == null) return null;
-    final plan = planFor(goal);
-    if (matureTrees < plan.matureTrees) {
-      return 'Grow a tree to maturity to support this habitat.';
+    if (activeProject case final goal?) {
+      final plan = planFor(goal);
+      if (plan.species case final species?) {
+        if (!unlocked(species)) {
+          return '${species.label} unlocks at level ${species.unlockLevel}.';
+        }
+        final needed = math.max(
+            0, plan.matureTrees - matureCount(species) - growingCount(species));
+        return needed > 0
+            ? 'Plant $needed more ${species.label.toLowerCase()} trees; grow your ${growingCount(species)} seedlings.'
+            : 'You have enough planted. Grow your ${growingCount(species)} remaining ${species.label.toLowerCase()} trees.';
+      }
     }
-    if (water < plan.cost.water) {
-      return unlocked(TreeSpecies.willow)
-          ? 'Save water, or grow a willow to get water at maturity.'
-          : 'Save water for this goal. Watering another tree spends it.';
+    if (activeRestoration case final milestone?) {
+      if (milestone.diversity) {
+        final available = TreeSpecies.values
+            .where((s) => unlocked(s) && !matureSpecies.contains(s));
+        final next = TreeSpecies.values
+            .where((s) => !matureSpecies.contains(s))
+            .firstOrNull;
+        if (available.isEmpty && next != null) {
+          return '${next.label} unlocks at level ${next.unlockLevel}, opening a new mature variety.';
+        }
+        return 'Grow a variety you do not yet have at maturity.';
+      }
+      return 'Every variety counts. Grow your seedlings to maturity.';
     }
-    if (materials < plan.cost.materials) {
-      return 'Pines yield materials; a nursery earns extra materials as you complete tasks.';
-    }
-    return 'Ready to build · check what you will have left.';
+    return null;
   }
 
   ForestResources afterWatering(ForestTree tree) =>
-      resources -
-      const ForestResources(water: 1) +
-      (tree.growth == 1
-          ? maturityYield(tree.species)
-          : const ForestResources());
+      resources - const ForestResources(water: 1);
 
   ForestProject? get activeProject {
-    final goals = byId.values
-        .where((e) => e.kind == 'goal' && e.project != null)
-        .toList()
-      ..sort((a, b) => a.id.compareTo(b.id));
-    if (goals.isNotEmpty && !hasProject(goals.last.project!)) {
-      return goals.last.project;
+    final goals = _goals;
+    if (goals.isNotEmpty) {
+      final goal = goals.last.project;
+      if (goal != null && !hasProject(goal)) return goal;
+      if (restorationGoals) return null;
     }
-    return resourceChoices
+    return restorationGoals
         ? null
         : ForestProject.values.where((p) => !hasProject(p)).firstOrNull;
   }
@@ -322,8 +351,11 @@ class ForestState {
     if (hasProject(project)) return 1;
     final plan = planFor(project);
     final parts = <double>[
-      math.min(1, materials / plan.cost.materials),
-      math.min(1, matureTrees / plan.matureTrees),
+      if (plan.cost.materials > 0) math.min(1, materials / plan.cost.materials),
+      math.min(
+          1,
+          (plan.species == null ? matureTrees : matureCount(plan.species!)) /
+              plan.matureTrees),
       if (plan.cost.water > 0) math.min(1, water / plan.cost.water),
       if (plan.prerequisite != null) hasProject(plan.prerequisite!) ? 1 : 0,
     ];

@@ -217,54 +217,74 @@ icon for controls:
 - **Reach level 16**: reveal all tree varieties for testing; future growth stages remain hidden.
 - **Reset sandbox**: start again with a fresh forest and clear queued XP feedback.
 
-For a quick tour, grow four mature trees, open the project panel, and build the
-nursery, birdhouse, and pond in order. The sandbox has its own navigation and
+For a quick tour, choose **Try restoration goals**, pin a habitat, then use
+**Complete pinned tree goal**. Use **Preview restored forest** to see all habitats
+and ecosystem changes together. The sandbox has its own navigation and
 reward overlay, so XP celebrations remain visible above its sheets. Use the
 back arrow to leave and discard everything. Sandbox actions never write local
 storage, call cloud sync, or modify task completion history. Debug controls are
 absent in release/profile builds, and controller guards reject cheats on real
 forests even in debug builds.
 
-### Resource-choice experiment
+### Restoration experiment
 
-The debug sandbox opens with an experimental economy; your saved forest keeps
-its original rules while we tune the balance. Use **Sandbox controls → Try a
-balanced start** for 8 seeds, 6 water, 12 materials, and a mature pine. That
-budget affords any one habitat, but spending on one delays the others.
+Open **Your forest → bug icon → Sandbox controls → Try restoration goals**.
+The sandbox now tests tree achievements and ecosystem restoration. Your saved
+forest keeps its existing rules and resource credits while we experiment.
 
-| Habitat | Cost (plus 1 mature tree, which stays) | Automatic income |
+**Only task completions supply materials and water** (apart from explicit
+debug grants). Planting spends materials at the variety's listed price; growing
+spends one water per stage. Trees and habitats have no resource payouts or
+production timers. Seeds are omitted from this two-resource experiment.
+
+Habitat achievements reveal themselves automatically when their trees mature:
+
+| Achievement | Requirement | What appears |
 | --- | --- | --- |
-| Nursery | 8 materials, 2 water | +2 materials every 4 new task completions |
-| Songbird haven | 10 materials | +2 seeds every 4 new task completions |
-| Woodland pond | 12 materials, 6 water | +2 water every 4 new task completions; early willow planting |
+| Woodland nursery | 3 mature pines | A permanent growing shelter |
+| Songbird haven | 5 mature maples | A birdhouse and resident songbirds |
+| Woodland pond | 3 mature willows | A pond and resident frogs |
 
-All three habitats are available together; there is no required purchase order
-or automatic next goal. Pin a goal to see its shortages and relevant tree
-choices. Build, plant, and water previews show what will remain, including any
-shortfall for the pinned project. Habitats collect bonuses automatically on
-new full completions, with a countdown and a source message in XP feedback.
-Buying a habitat never pays income for earlier tasks. Re-completing an undone
-occurrence never pays twice. Use **Simulate a task completion** to test income;
-force-level cheats also advance income correctly.
+There is no build/claim button or required order. Existing mature trees count;
+young trees do not. Tree varieties retain their level requirements, including
+willow at level 8, so the pond recipe cannot depend on unlocking itself.
 
-Experimental tree yields arrive once at maturity, with no harvest button:
-pine gives 4 materials; birch 6 seeds; oak 6 materials; maple 10 seeds; willow
-6 water; cedar 8 materials; redwood 12 materials. Their seed prices and two
-water growth actions remain visible. For example, planting and growing a pine
-uses 3 seeds and 2 water for 4 materials, while birch uses 4 seeds and 2 water
-and returns 6 seeds. Tree artwork still reveals only stages you have grown.
+The forest changes as it reaches ecosystem milestones:
 
-The balanced-start button can be used repeatedly to compare routes. Grants of
-50 resources are still available for free exploration. Experimental budgets,
-project purchase markers, and income events remain in memory; the live owner
-rules reject them, and tests verify that ordinary saves and sync never receive
-them. Promoting these rules to the saved forest will be a separate decision
-after trying the economy.
+| Milestone | Requirement | Visible change |
+| --- | --- | --- |
+| Living forest floor | 3 mature trees | Grass covers the bare clearing |
+| A diverse woodland | 3 mature varieties | Lichen grows on mature trunks |
+| A flourishing grove | 8 mature trees | Wildflowers bloom across the grass |
 
-See the rendered [habitat choices](docs/images/forest-resource-choices-projects.png),
-[pond trade-off](docs/images/forest-resource-choices-pond.png),
-[income feedback](docs/images/forest-resource-choices-income.png), and
-[tree conversions](docs/images/forest-resource-choices-trees.png).
+Pin either a habitat or an ecosystem milestone. Cards show exact mature counts,
+growing trees, and how many more to plant. **Find maple trees** selects a growing
+maple or puts maples first in the planting list. Diversity goals suggest a variety
+you have not yet grown to maturity. Future tree artwork remains hidden until
+its variety and growth stage have been achieved. New habitats and ground cover
+announce themselves in the scene; all restoration changes are permanent.
+
+Debug shortcuts:
+
+- **Try restoration goals** starts at level 5 with one mature pine, 32 materials,
+  and 30 water, enough to try the five-maple goal.
+- **Complete pinned tree goal** grows existing matching seedlings before adding
+  missing trees, or completes the selected ecosystem goal.
+- **Preview restored forest** shows all three habitats, grass, lichen, and flowers.
+- Resource grants, simulated completions, level-ups, and fresh resets remain
+  available. Simulating a task grants materials and water; it never grants
+  extra habitat income.
+
+The sandbox writes no account data. Habitats and ecosystem milestones are derived
+from the same immutable planting/watering events, so reloads and duplicate events
+do not cause extra rewards. Its ecological goal events are rejected by live
+Firestore rules. Promoting this design to saved forests will be a separate change.
+
+Rendered previews: [bare clearing](docs/images/forest-restoration-bare.png),
+[restored forest](docs/images/forest-restoration-living.png),
+[lichen close-up](docs/images/forest-restoration-lichen.png),
+[habitat achievements](docs/images/forest-restoration-habitats.png), and
+[ecosystem milestones](docs/images/forest-restoration-milestones.png).
 
 Sanctuary project/goal events sync through the existing owner-only forest
 collection. This PR includes updated Firestore rules and emulator coverage;

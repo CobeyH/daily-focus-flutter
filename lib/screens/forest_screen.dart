@@ -53,11 +53,27 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                 child: child)));
   }
 
-  void _nursery() => _sheet(_Nursery(onPlanted: (id) {
+  void _nursery({TreeSpecies? suggested}) => _sheet(_Nursery(
+      suggested: suggested,
+      onPlanted: (id) {
         if (mounted) setState(() => _selected = id);
       }));
 
-  void _projects() => _sheet(ForestProjects(onTendTrees: () {
+  void _projects() => _sheet(ForestProjects(
+      onFindSpecies: _findSpecies,
+      onTendTrees: () {
+        final forest = ref.read(forestProvider);
+        final wanted = forest.activeProject == null
+            ? (forest.activeRestoration?.diversity == true
+                ? TreeSpecies.values
+                    .where((s) => !forest.matureSpecies.contains(s))
+                    .firstOrNull
+                : null)
+            : forest.planFor(forest.activeProject!).species;
+        if (wanted != null) {
+          _findSpecies(wanted);
+          return;
+        }
         Navigator.pop(context);
         final growing = ref
             .read(forestProvider)
@@ -70,6 +86,20 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
           setState(() => _selected = growing.id);
         }
       }));
+
+  void _findSpecies(TreeSpecies species) {
+    Navigator.pop(context);
+    final growing = ref
+        .read(forestProvider)
+        .trees
+        .where((t) => t.species == species && t.growth < 2)
+        .firstOrNull;
+    if (growing != null) {
+      setState(() => _selected = growing.id);
+    } else {
+      _nursery(suggested: species);
+    }
+  }
 
   void _debug() {
     if (!kDebugMode) return;
@@ -85,7 +115,7 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                   overrides: [
                     forestProvider.overrideWith(() => ForestController.sandbox(
                         initial,
-                        resourceChoices: true)),
+                        restorationGoals: true)),
                     forestRewardProvider
                         .overrideWith(ForestRewardController.new),
                   ],
@@ -139,8 +169,7 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
               Text('Level ${forest.level}', style: text.headlineMedium),
               const SizedBox(height: 8),
               Text('${forest.xp} lifetime XP · ${forest.trees.length} trees'),
-              Text(
-                  '${forest.seeds} seeds · ${forest.water} water · ${forest.materials} materials'),
+              Text(forest.resourceBalance),
               const SizedBox(height: 16),
               LinearProgressIndicator(value: forest.levelProgress),
               const SizedBox(height: 8),
@@ -149,9 +178,8 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
               const SizedBox(height: 24),
               Text('A forest that stays with you', style: text.titleLarge),
               const SizedBox(height: 8),
-              Text(
-                  'Each completed task earns 10 XP, 1 seed, 1 water, and 1 building material. '
-                  '${forest.resourceChoices ? 'Trees yield different resources at maturity; habitats add bonuses every 4 task completions. ' : 'Mature trees contribute 3 extra materials. '}'
+              Text('Each completed task earns 10 XP and planting resources. '
+                  '${forest.restorationGoals ? 'Plant with materials and grow with water. Trees unlock habitats and restoration milestones. ' : 'Mature trees contribute 3 extra materials. '}'
                   'Your clearing expands with your level. Trees, levels, and resources never decay. '
                   'Undo keeps your rewards; the same occurrence never earns twice.'),
               const SizedBox(height: 20),
@@ -168,7 +196,7 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                             forest: forest, species: species)),
                     title: Text(species.label),
                     subtitle: Text(
-                        'Level ${species.unlockLevel}${species == TreeSpecies.willow ? ' or woodland pond' : ''} · ${species.seedCost} seeds${forest.resourceChoices ? '\nMaturity: +${forest.maturityYield(species).yieldLabel}' : ''}'),
+                        'Level ${species.unlockLevel} · ${species.seedCost} ${forest.restorationGoals ? 'materials' : 'seeds'}'),
                     trailing: Icon(forest.unlocked(species)
                         ? Icons.check_rounded
                         : Icons.lock_outline)),
@@ -227,8 +255,8 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                         child: TextButton.icon(
                             onPressed: _debug,
                             icon: const Icon(Icons.tune, size: 18),
-                            label: Text(forest.resourceChoices
-                                ? 'Resource choices · sandbox'
+                            label: Text(forest.restorationGoals
+                                ? 'Restoration goals · sandbox'
                                 : 'Sandbox · temporary progress')))),
               if (compact)
                 Padding(
@@ -240,7 +268,11 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                             child: Text('Level ${forest.level}')),
                         Expanded(
                             child: Wrap(spacing: 8, children: [
-                          Text('${forest.seeds} seeds', style: text.bodySmall),
+                          Text(
+                              forest.restorationGoals
+                                  ? '${forest.materials} materials'
+                                  : '${forest.seeds} seeds',
+                              style: text.bodySmall),
                           Text('${forest.water} water', style: text.bodySmall),
                         ])),
                         IconButton(
@@ -271,7 +303,9 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                               Chip(
                                   avatar:
                                       const Icon(Icons.eco_outlined, size: 18),
-                                  label: Text('${forest.seeds} seeds')),
+                                  label: Text(forest.restorationGoals
+                                      ? '${forest.materials} materials'
+                                      : '${forest.seeds} seeds')),
                               Chip(
                                   avatar: const Icon(Icons.water_drop_outlined,
                                       size: 18),
@@ -366,12 +400,12 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
                           icon: const Icon(Icons.chevron_right)),
                     ],
                   ]),
-                  if (forest.resourceChoices) ...[
+                  if (forest.restorationGoals) ...[
                     const SizedBox(height: 8),
                     Text(
-                        selected.growth >= 2
-                            ? 'Maturity yield collected: ${forest.maturityYield(selected.species).yieldLabel}'
-                            : 'At maturity: +${forest.maturityYield(selected.species).yieldLabel}',
+                        forest.activeGoalTitle == null
+                            ? 'Grow trees to reveal habitats and restore the forest.'
+                            : '${forest.activeGoalTitle}: ${forest.goalAdvice}',
                         style: text.bodySmall),
                     if (selected.growth < 2 && forest.water >= 1)
                       ForestSpendPreview(
@@ -408,7 +442,8 @@ class _ForestScreenState extends ConsumerState<ForestScreen> {
 
 class _Nursery extends ConsumerStatefulWidget {
   final ValueChanged<String> onPlanted;
-  const _Nursery({required this.onPlanted});
+  final TreeSpecies? suggested;
+  const _Nursery({required this.onPlanted, this.suggested});
   @override
   ConsumerState<_Nursery> createState() => _NurseryState();
 }
@@ -451,7 +486,7 @@ class _NurseryState extends ConsumerState<_Nursery> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Plant a tree', style: text.headlineSmall),
-                    Text('${forest.seeds} seeds · Level ${forest.level}'),
+                    Text('${forest.resourceBalance} · Level ${forest.level}'),
                     const SizedBox(height: 4),
                     Text('Previews reveal only the stages you have grown.',
                         style: text.bodySmall),
@@ -461,7 +496,18 @@ class _NurseryState extends ConsumerState<_Nursery> {
                               color: Theme.of(context).colorScheme.error)),
                   ]));
         }
-        final species = TreeSpecies.values[index - 1];
+        final suggested = [
+          if (widget.suggested != null) widget.suggested!,
+          ...TreeSpecies.values.where((s) =>
+              forest.restorationGoals &&
+              forest.helpsGoal(s) &&
+              s != widget.suggested)
+        ];
+        final ordered = [
+          ...suggested,
+          ...TreeSpecies.values.where((s) => !suggested.contains(s))
+        ];
+        final species = ordered[index - 1];
         final unlocked = forest.unlocked(species);
         return Card(
           key: ValueKey('nursery-${species.name}'),
@@ -482,33 +528,30 @@ class _NurseryState extends ConsumerState<_Nursery> {
                       Text(species.label, style: text.titleMedium),
                       Text(
                           unlocked
-                              ? '${species.seedCost} seeds · 2 water to grow'
-                              : 'Unlocks at level ${species.unlockLevel}${species == TreeSpecies.willow ? ' or restore the pond' : ''}',
+                              ? '${species.seedCost} ${forest.restorationGoals ? 'materials' : 'seeds'} · 2 water to grow'
+                              : 'Unlocks at level ${species.unlockLevel}${species == TreeSpecies.willow && !forest.restorationGoals ? ' or restore the pond' : ''}',
                           style: text.bodySmall),
-                      if (forest.resourceChoices) ...[
+                      if (forest.restorationGoals) ...[
                         const SizedBox(height: 4),
-                        Text(
-                            'At maturity: +${forest.maturityYield(species).yieldLabel}',
-                            style: text.bodySmall),
+                        const Text('Counts toward mature-tree achievements.'),
                         if (forest.helpsGoal(species))
-                          Text('Helps your ${forest.activeProject!.label} goal',
+                          Text('Helps your ${forest.activeGoalTitle} goal',
                               style: text.labelSmall?.copyWith(
                                   color:
                                       Theme.of(context).colorScheme.primary)),
-                        if (unlocked && forest.seeds >= species.seedCost)
+                        if (forest.canPlant(species))
                           ForestSpendPreview(
                               forest: forest,
                               remaining: forest.resources -
-                                  ForestResources(seeds: species.seedCost),
+                                  forest.plantingCost(species),
                               action: 'planting'),
                       ],
                       const SizedBox(height: 8),
                       FilledButton.icon(
-                          onPressed: !_busy &&
-                                  unlocked &&
-                                  forest.seeds >= species.seedCost
-                              ? () => _plant(species)
-                              : null,
+                          onPressed:
+                              !_busy && unlocked && forest.canPlant(species)
+                                  ? () => _plant(species)
+                                  : null,
                           icon: Icon(unlocked ? Icons.add : Icons.lock_outline,
                               size: 18),
                           label: Text(unlocked

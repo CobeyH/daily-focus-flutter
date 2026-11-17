@@ -10,16 +10,16 @@ final forestProvider =
 
 class ForestController extends Notifier<ForestState> {
   final bool isSandbox;
-  final bool _resourceChoices;
+  final bool _restorationGoals;
   final List<ForestEvent> _initial;
   ForestController()
       : isSandbox = false,
-        _resourceChoices = false,
+        _restorationGoals = false,
         _initial = const [];
   ForestController.sandbox(Iterable<ForestEvent> initial,
-      {bool resourceChoices = false})
+      {bool restorationGoals = false})
       : isSandbox = true,
-        _resourceChoices = resourceChoices,
+        _restorationGoals = restorationGoals,
         _initial = List.of(initial);
   Future<void> _pending = Future.value();
 
@@ -36,16 +36,7 @@ class ForestController extends Notifier<ForestState> {
       if (!kDebugMode) {
         throw StateError('Sandbox is available in debug builds only.');
       }
-      final completions = ForestState(_initial).completions;
-      return ForestState(
-          _initial.map((e) => _resourceChoices && e.kind == 'project'
-              ? ForestEvent(
-                  id: e.id,
-                  kind: 'choiceProject',
-                  project: e.project,
-                  atCompletion: completions)
-              : e),
-          resourceChoices: _resourceChoices);
+      return ForestState(_initial, restorationGoals: _restorationGoals);
     }
     return ForestState(ref.watch(storageProvider).loadForest());
   }
@@ -57,7 +48,7 @@ class ForestController extends Notifier<ForestState> {
     if (added.isEmpty) return null;
     final before = state;
     final next = ForestState([...state.events, ...added],
-        resourceChoices: state.resourceChoices);
+        restorationGoals: state.restorationGoals);
     state = next;
     try {
       if (!isSandbox) await ref.read(storageProvider).saveForest(next.events);
@@ -83,16 +74,7 @@ class ForestController extends Notifier<ForestState> {
 
   List<ForestEvent> _rewardEvents(ForestState forest, ForestEvent reward) {
     if (forest.byId.containsKey(reward.id)) return [];
-    return [
-      reward,
-      if (forest.resourceChoices)
-        for (final project in forest.projects)
-          if (forest.bonusIn(project) == 1)
-            ForestEvent(
-                id: 'bonus_${reward.id}_${project.name}',
-                kind: 'choiceBonus',
-                project: project),
-    ];
+    return [reward];
   }
 
   Future<void> _sync() async {
@@ -103,8 +85,9 @@ class ForestController extends Notifier<ForestState> {
   }
 
   Future<String> plant(TreeSpecies species) => _run(() async {
-        if (!state.unlocked(species) || state.seeds < species.seedCost) {
-          throw StateError('Not enough seeds or this tree is still locked.');
+        if (!state.canPlant(species)) {
+          throw StateError(
+              'Not enough planting resources or this tree is still locked.');
         }
         final id =
             'plant_${DateTime.now().toUtc().microsecondsSinceEpoch}_${const Uuid().v4()}';
@@ -134,14 +117,15 @@ class ForestController extends Notifier<ForestState> {
       });
 
   Future<void> buildProject(ForestProject project) => _run(() async {
+        if (state.restorationGoals) {
+          throw StateError(
+              'Habitat achievements unlock automatically when their trees mature.');
+        }
         if (!state.canBuild(project)) {
           throw StateError('This project still has requirements to complete.');
         }
         await _append(ForestEvent(
-            id: 'project_${project.name}',
-            kind: state.resourceChoices ? 'choiceProject' : 'project',
-            project: project,
-            atCompletion: state.resourceChoices ? state.completions : null));
+            id: 'project_${project.name}', kind: 'project', project: project));
         _sync().ignore();
       });
 
@@ -171,7 +155,7 @@ class ForestController extends Notifier<ForestState> {
                 next,
                 ForestEvent(
                     id: 'debug_reward_${const Uuid().v4()}', kind: 'reward'))
-          ], resourceChoices: next.resourceChoices);
+          ], restorationGoals: next.restorationGoals);
         }
         state = next;
         ref
@@ -200,23 +184,101 @@ class ForestController extends Notifier<ForestState> {
         }
       });
 
-  Future<void> debugBalancedStart() => _run(() async {
+  Future<void> chooseRestoration(ForestRestoration milestone) => _run(() async {
+        _requireSandbox();
+        if (!state.restorationGoals || state.restorations.contains(milestone)) {
+          return;
+        }
+        await _append(ForestEvent(
+            id: 'goal_${DateTime.now().toUtc().microsecondsSinceEpoch}_${const Uuid().v4()}',
+            kind: 'restorationGoal',
+            restoration: milestone));
+      });
+
+  Future<void> debugRestorationStart() => _run(() async {
         _requireSandbox();
         ref.read(forestRewardProvider.notifier).clear();
         state = ForestState([
-          for (var i = 0; i < 5; i++)
-            ForestEvent(id: 'balanced_reward_$i', kind: 'reward'),
+          for (var i = 0; i < 32; i++)
+            ForestEvent(id: 'restoration_reward_$i', kind: 'reward'),
           const ForestEvent(
-              id: 'balanced_water_1', kind: 'water', treeId: 'starter'),
+              id: 'starter_water_1', kind: 'water', treeId: 'starter'),
           const ForestEvent(
-              id: 'balanced_water_2', kind: 'water', treeId: 'starter'),
-          const ForestEvent(id: 'balanced_stock', kind: 'debugChoiceBudget'),
-        ], resourceChoices: true);
+              id: 'starter_water_2', kind: 'water', treeId: 'starter'),
+        ], restorationGoals: true);
+      });
+
+  Future<void> debugCompleteGoal() => _run(() async {
+        _requireSandbox();
+        if (!state.restorationGoals) return;
+        final project = state.activeProject,
+            milestone = state.activeRestoration;
+        if (project == null && milestone == null) return;
+        await _append(ForestEvent(
+            id: 'debug_${const Uuid().v4()}', kind: 'debugResources'));
+        final species = project == null
+            ? TreeSpecies.pine
+            : state.planFor(project).species!;
+        final target = project == null
+            ? milestone!.target
+            : state.planFor(project).matureTrees;
+        while (project != null
+            ? state.matureCount(species) < target
+            : state.restorationCount(milestone!) < target) {
+          final wanted = milestone?.diversity == true
+              ? TreeSpecies.values
+                  .firstWhere((s) => !state.matureSpecies.contains(s))
+              : species;
+          var tree = state.trees
+              .where((t) => t.species == wanted && t.growth < 2)
+              .firstOrNull;
+          if (tree == null) {
+            final id = 'debug_plant_${const Uuid().v4()}';
+            await _append(ForestEvent(
+                id: id, kind: 'plant', species: wanted, plot: state.nextPlot));
+            tree = state.trees.firstWhere((t) => t.id == id);
+          }
+          for (var growth = tree.growth; growth < 2; growth++) {
+            await _append(ForestEvent(
+                id: 'debug_water_${const Uuid().v4()}',
+                kind: 'water',
+                treeId: tree.id));
+          }
+        }
+      });
+
+  Future<void> debugRestoredForest() => _run(() async {
+        _requireSandbox();
+        ref.read(forestRewardProvider.notifier).clear();
+        final species = [
+          TreeSpecies.pine,
+          TreeSpecies.pine,
+          for (var i = 0; i < 5; i++) TreeSpecies.maple,
+          for (var i = 0; i < 3; i++) TreeSpecies.willow,
+          TreeSpecies.birch
+        ];
+        state = ForestState([
+          for (var i = 0; i < 77; i++)
+            ForestEvent(id: 'restored_reward_$i', kind: 'reward'),
+          for (var i = 0; i < species.length; i++)
+            ForestEvent(
+                id: 'restored_tree_$i',
+                kind: 'plant',
+                species: species[i],
+                plot: i + 1),
+          for (final id in [
+            'starter',
+            for (var i = 0; i < species.length; i++) 'restored_tree_$i'
+          ])
+            for (var i = 0; i < 2; i++)
+              ForestEvent(
+                  id: 'restored_water_${id}_$i', kind: 'water', treeId: id),
+        ], restorationGoals: true);
       });
 
   Future<void> debugReset() => _run(() async {
         _requireSandbox();
         ref.read(forestRewardProvider.notifier).clear();
-        state = ForestState([], resourceChoices: state.resourceChoices);
+        state = ForestState([], restorationGoals: state.restorationGoals);
       });
 }
