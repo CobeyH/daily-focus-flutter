@@ -21,8 +21,6 @@ class TaskTimingPicker extends StatelessWidget {
   void _change(
           {DaySlot? slot,
           bool clearSlot = false,
-          int? after,
-          bool clearAfter = false,
           int? before,
           int? show,
           int? due,
@@ -30,7 +28,6 @@ class TaskTimingPicker extends StatelessWidget {
           int? grace}) =>
       onChanged(TaskTiming(
           slot: clearSlot ? null : slot ?? value.slot,
-          visibleDaysAfter: clearAfter ? null : after ?? value.visibleDaysAfter,
           showDaysBefore: before ?? value.showDaysBefore,
           showMinute: show ?? value.showMinute,
           dueMinute: clearDue ? null : due ?? value.dueMinute,
@@ -115,29 +112,9 @@ class TaskTimingPicker extends StatelessWidget {
                     label: Text(clockLabel(value.showMinute))),
               ]),
         const SizedBox(height: 12),
-        DropdownButtonFormField<int>(
-            key: const ValueKey('visibility-after'),
-            initialValue: value.visibleDaysAfter ?? -1,
-            isExpanded: true,
-            decoration:
-                const InputDecoration(labelText: 'Keep visible after due date'),
-            items: [
-              const DropdownMenuItem(value: -1, child: Text('Until completed')),
-              for (var day = 0; day <= 30; day++)
-                DropdownMenuItem(
-                    value: day,
-                    child: Text(day == 0
-                        ? 'Through the due day'
-                        : '$day day${day == 1 ? '' : 's'} after due')),
-            ],
-            onChanged: (day) {
-              if (day != null) {
-                _change(after: day < 0 ? null : day, clearAfter: day < 0);
-              }
-            }),
         const SizedBox(height: 8),
         Text(
-            'Once a task appears, it stays visible for the rest of that day. Later slots never hide unfinished tasks.',
+            'Later time slots do not hide unfinished tasks. A task stays visible until its completion window ends.',
             style: style.bodySmall),
         if (onEditSlots != null)
           TextButton.icon(
@@ -171,14 +148,14 @@ class TaskTimingPicker extends StatelessWidget {
             initialValue: value.graceDays,
             isExpanded: true,
             decoration: const InputDecoration(
-                labelText: 'Grace period',
+                labelText: 'Keep available after due',
                 prefixIcon: Icon(Icons.hourglass_bottom_rounded)),
             items: [
               for (var day = 0; day <= 30; day++)
                 DropdownMenuItem(
                     value: day,
                     child: Text(day == 0
-                        ? 'None · strict deadline'
+                        ? 'None · until the deadline'
                         : 'Up to $day day${day == 1 ? '' : 's'} late'))
             ],
             onChanged: (day) {
@@ -187,8 +164,8 @@ class TaskTimingPicker extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
             value.graceDays == 0
-                ? 'No extra time for streak credit. Visibility is controlled separately above.'
-                : 'Completion within this window keeps your streak. This does not change visibility or the next due date.',
+                ? 'Visible and completable until the deadline, then hidden from Tasks. History is kept.'
+                : 'Stays visible and completable for ${value.graceDays} extra days at the same due time. Completion in this window keeps your streak; the next due date stays fixed.',
             style: style.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant)),
       ],

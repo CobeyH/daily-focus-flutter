@@ -4,24 +4,26 @@ import 'day_slots.dart';
 /// Local wall-clock settings. Grace days keep the same local due time over DST.
 class TaskTiming {
   final DaySlot? slot;
-  final int? visibleDaysAfter;
+  // Compatibility alias: old clients stored visibility separately.
+  int get visibleDaysAfter => graceDays;
   final int showDaysBefore;
   final int showMinute;
   final int? dueMinute;
   final int graceDays;
   const TaskTiming(
       {this.slot,
-      this.visibleDaysAfter,
+      int? visibleDaysAfter,
       this.showDaysBefore = 0,
       this.showMinute = 0,
       this.dueMinute,
-      this.graceDays = 0})
-      : assert(visibleDaysAfter == null ||
+      int? graceDays})
+      : graceDays = graceDays ?? visibleDaysAfter ?? 0,
+        assert(visibleDaysAfter == null ||
             (visibleDaysAfter >= 0 && visibleDaysAfter <= 30)),
         assert(showDaysBefore >= 0 && showDaysBefore <= 30),
         assert(showMinute >= 0 && showMinute < 1440),
         assert(dueMinute == null || (dueMinute >= 0 && dueMinute < 1440)),
-        assert(graceDays >= 0 && graceDays <= 30);
+        assert(graceDays == null || (graceDays >= 0 && graceDays <= 30));
 
   int startMinute(DaySlots slots) =>
       slot == null ? showMinute : slots.start(slot!);
@@ -32,8 +34,7 @@ class TaskTiming {
   }
 
   bool visibilityEnded(DateTime dueDate, DateTime now) =>
-      visibleDaysAfter != null &&
-      !now.isBefore(calendarDay(dueDate, visibleDaysAfter! + 1));
+      pastGrace(dueDate, now);
 
   /// All-day deadlines use the exclusive midnight boundary of the next day.
   DateTime dueAt(DateTime dueDate) => dueMinute == null
@@ -59,7 +60,7 @@ class TaskTiming {
       startMinute(slots) <= dueMinute!;
   Map<String, dynamic> toJson() => {
         if (slot != null) 'slot': slot!.name,
-        if (visibleDaysAfter != null) 'visibleDaysAfter': visibleDaysAfter,
+        'visibleDaysAfter': graceDays,
         'showDaysBefore': showDaysBefore,
         'showMinute': showMinute,
         'dueMinute': dueMinute,
@@ -67,11 +68,12 @@ class TaskTiming {
       };
   factory TaskTiming.fromJson(Map<String, dynamic> json) => TaskTiming(
       slot: DaySlot.values.where((s) => s.name == json['slot']).firstOrNull,
-      visibleDaysAfter:
-          (json['visibleDaysAfter'] as num?)?.toInt().clamp(0, 30),
       showDaysBefore:
           ((json['showDaysBefore'] as num?)?.toInt() ?? 0).clamp(0, 30),
       showMinute: ((json['showMinute'] as num?)?.toInt() ?? 0).clamp(0, 1439),
       dueMinute: (json['dueMinute'] as num?)?.toInt().clamp(0, 1439),
-      graceDays: ((json['graceDays'] as num?)?.toInt() ?? 0).clamp(0, 30));
+      graceDays: ((json['graceDays'] as num?)?.toInt() ??
+              (json['visibleDaysAfter'] as num?)?.toInt() ??
+              0)
+          .clamp(0, 30));
 }

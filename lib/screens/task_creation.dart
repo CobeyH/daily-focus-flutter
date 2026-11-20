@@ -357,16 +357,18 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
             SchedulePicker(
                 initial: _schedule,
                 onChanged: (value) => setState(() => _schedule = value)),
-            const SizedBox(height: 16),
-            Text(_schedule is ScheduleOnce ? 'Due date' : 'Next due dates',
-                style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              for (final date in next)
-                Chip(
-                    label: Text(
-                        '${kWeekDayLabels[date.weekday - 1]} ${shortDate(date)}'))
-            ]),
+            if (_schedule is! ScheduleOnce) ...[
+              const SizedBox(height: 16),
+              Text('Next due dates',
+                  style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 6, children: [
+                for (final date in next)
+                  Chip(
+                      label: Text(
+                          '${kWeekDayLabels[date.weekday - 1]} ${shortDate(date)}'))
+              ]),
+            ],
             if (_schedule is ScheduleInterval &&
                 (_schedule as ScheduleInterval).period == SchedulePeriod.month)
               const Text('Shorter months use their last day.',
@@ -374,7 +376,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
           ])),
       _section(
           'Visibility',
-          'Choose when it appears and how long it stays.',
+          'Choose when it first appears.',
           TaskTimingPicker(
               value: _timing,
               visibilityOnly: true,
@@ -383,7 +385,7 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
               slots: ref.watch(daySlotsProvider),
               onChanged: (value) => setState(() => _timing = value))),
       _section(
-          'Deadline & grace',
+          'Deadline & availability',
           'Choose when it is due and how much flexibility you need.',
           TaskTimingPicker(
               value: _timing,
@@ -413,12 +415,11 @@ class _TaskCreationScreenState extends ConsumerState<TaskCreationScreen> {
             _review('Repeat', _schedule.describe(), 1),
             _review(
                 'Visibility',
-                'Show ${_timing.showDaysBefore == 0 ? 'on the due day' : '${_timing.showDaysBefore} days early'} at ${clockLabel(_timing.startMinute(ref.watch(daySlotsProvider)))}\n'
-                    'Visible ${_timing.visibleDaysAfter == null ? 'until completed' : 'through ${_timing.visibleDaysAfter} days after due'}',
+                'Show ${_timing.showDaysBefore == 0 ? 'on the due day' : '${_timing.showDaysBefore} days early'} at ${clockLabel(_timing.startMinute(ref.watch(daySlotsProvider)))}',
                 2),
             _review(
-                'Deadline & grace',
-                'Due ${_timing.dueMinute == null ? 'at end of day' : 'at ${clockLabel(_timing.dueMinute!)}'} · ${_timing.graceDays == 0 ? 'No grace period' : '${_timing.graceDays} days grace'}',
+                'Deadline & availability',
+                'Due ${_timing.dueMinute == null ? 'at end of day' : 'at ${clockLabel(_timing.dueMinute!)}'} · ${_timing.graceDays == 0 ? 'Available until the deadline' : 'Available up to ${_timing.graceDays} days after due'}',
                 3),
             ListTile(
                 leading: Icon(iconFor(_icon), color: Color(_color)),

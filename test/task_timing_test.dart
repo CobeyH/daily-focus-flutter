@@ -50,7 +50,7 @@ void main() {
   test('appearance, due time, grace boundary, and overdue are separate', () {
     final task = review();
     OccurrenceStatus status(DateTime now) =>
-        currentOccurrence(task, [], now)!.status;
+        TaskOccurrence(task, DateTime(2026, 10, 28), null, now).status;
     expect(status(DateTime(2026, 10, 27, 8, 59)), OccurrenceStatus.upcoming);
     expect(status(DateTime(2026, 10, 27, 9)), OccurrenceStatus.available);
     expect(status(DateTime(2026, 10, 28, 18)), OccurrenceStatus.due);
@@ -191,17 +191,20 @@ void main() {
           currentOccurrence(task, entries, DateTime(2026, 10, 29, 13))!.status,
           OccurrenceStatus.grace);
     });
-    test(
-        'late completion closes the occurrence but does not restore the streak',
+    test('an in-flight timer can finish late without repairing its streak',
         () async {
-      final task = review();
+      final task = review().copyWith(type: TaskType.minutes, goal: 60);
       final controller = container.read(appControllerProvider.notifier);
       await controller.addTask(task);
-      await controller.markComplete(task, now: DateTime(2026, 10, 31, 12));
+      await controller.recordTimedCompletion(task, '2026-10-28',
+          completedAt: DateTime(2026, 10, 31, 12));
       final entries = container.read(appControllerProvider).entries;
       expect(entries.single.completionTiming, 'late');
       expect(currentStreak(task, entries, DateTime(2026, 10, 31, 12)), 0);
-      expect(currentOccurrence(task, entries, DateTime(2026, 10, 31, 12))!.done,
+      expect(
+          TaskOccurrence(task, DateTime(2026, 10, 28), entries.single,
+                  DateTime(2026, 10, 31, 12))
+              .done,
           true);
     });
     test('daily tap does not backfill yesterday', () async {

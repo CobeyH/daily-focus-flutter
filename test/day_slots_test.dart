@@ -112,7 +112,7 @@ void main() {
     final legacy = TaskTiming.fromJson({'showMinute': 555});
     expect(legacy.slot, isNull);
     expect(legacy.startMinute(const DaySlots()), 555);
-    expect(legacy.visibleDaysAfter, isNull);
+    expect(legacy.visibleDaysAfter, 0);
   });
 
   test('slot ordering and due-time validation use configured start times', () {
