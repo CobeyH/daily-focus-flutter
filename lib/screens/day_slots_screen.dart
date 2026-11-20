@@ -76,7 +76,7 @@ class _DaySlotsScreenState extends ConsumerState<DaySlotsScreen> {
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: ListView(padding: const EdgeInsets.all(20), children: [
                   const Text(
-                      'Choose when each part of your day starts. Tasks stay visible after their slot starts, until completed or their visibility window ends.'),
+                      'Choose when each part of your day starts. Tasks stay visible after their slot starts, until completed or their completion window ends.'),
                   const SizedBox(height: 20),
                   for (final slot in DaySlot.values)
                     ListTile(

@@ -10,8 +10,10 @@ Task, Repeat, Visibility, Deadline, Appearance, and Review. Back keeps your draf
 nothing is saved until the final confirmation.
 
 In Repeat, choose **Never repeat** and a due date for a one-off task. It supports
-the same visibility and grace settings as recurring tasks. Completion is recorded
-once in history and never schedules another occurrence.
+the same appearance and availability settings as recurring tasks. Completion is recorded
+once in history and never schedules another occurrence. The Repeat step shows
+only the editable date picker for one-off tasks; recurring tasks retain their
+next-due-date preview.
 
 Choose **Multi-step** in the Task step for an ordered workflow, such as Wash
 laundry → Dry laundry. Add at least two named steps and reorder them with the
@@ -25,10 +27,9 @@ of their step names, so later definition edits apply to future occurrences.
   These app-wide preferences persist on this device. Tasks store a slot reference,
   so changing its start updates every task assigned to it. Existing tasks retain
   their custom appearance times; new tasks default to Morning.
-- **Visibility**: choose how many days before due to appear, a slot or custom
-  time, and how many days after due to stay visible (or until completed).
-  Later slots never hide unfinished earlier tasks. Visibility ends at midnight
-  after the final chosen day, independently of streak credit.
+- **Visibility**: choose how many days before due to appear and a slot or custom
+  time. Later slots never hide unfinished earlier tasks. The Deadline step
+  controls when availability ends.
 - **Tasks / Upcoming tasks**: Today includes actionable tasks and, below them,
   tasks whose visibility will start later today. Other future dates remain in
   the Upcoming view. The list updates at minute boundaries and on app resume.
@@ -41,8 +42,12 @@ of their step names, so later definition edits apply to future occurrences.
   Tasks whose appearance starts on a later calendar day remain unavailable.
 
 - **Due time**: a specific local time, or end of day.
-- **Grace period**: none (strict), or up to 30 calendar days late. A Wednesday
-  task with two grace days can be completed through Friday at the same due time.
+- **Keep available after due**: one setting controls both visibility and how long
+  completion still counts for the streak. Choose no extra time or up to 30
+  calendar days. A Wednesday task with two extra days stays visible and can be
+  completed through Friday at the same due time, then leaves Tasks and the widget.
+  All-day tasks close at midnight after the final available day. There is no
+  separate post-due visibility control or unlimited expired backlog.
 
 Today shows available tasks and collapses completed/skipped occurrences. Upcoming
 shows the next unopened occurrence for each task; All includes off-day tasks.
@@ -50,20 +55,30 @@ History distinguishes on-time, within-grace, late, missed, skipped, and rest day
 
 Progress belongs to one scheduled due date. Early/late completions store their
 actual completion time; undo targets that same occurrence, including after sync.
-Completion within grace preserves the streak. Beyond grace it is recorded as
-late and does not repair the streak. Explicit skips preserve it without adding.
+Completion within the availability window preserves the streak. New manual
+completions are refused after it expires. An already running timer can still
+record its actual late finish in history, without repairing the streak.
+Explicit skips preserve it without adding.
 
 If grace windows overlap, the older unfinished occurrence is offered first.
-Once a new cycle is due, an expired older cycle stays in history rather than
-building an unlimited backlog. Until then, an unfinished recurring task remains
-visible. Fixed schedules never slide with completion. Monthly tasks on the 29th,
+Expired older cycles stay in history rather than building an unlimited backlog.
+The next recurring occurrence can appear as soon as its early visibility window
+opens; an expired cycle never blocks it. Fixed schedules never slide with completion. Monthly tasks on the 29th,
 30th, or 31st use the last day of shorter months. All times follow device local
 time; grace periods and recurrence use calendar arithmetic across DST.
 
-Existing tasks default to no grace and same-day visibility. Existing completion
-history is retained without inventing timestamps. Editing timing does not restart
+Existing tasks keep their saved grace length as the single availability window;
+conflicting legacy visibility values no longer hide valid grace time or expose
+expired tasks. Older visibility-only records use their finite visibility length,
+and tasks without timing default to the due day. Serialization mirrors the window
+into the legacy visibility key for older clients. Existing completion history is
+retained without inventing timestamps. Editing timing does not restart
 a running timer. Deadline reminders are not added; timer alerts retain their
 existing platform support.
+
+Rendered editor previews: [one-off due date](docs/images/task-availability-due-date.png),
+[appearance settings](docs/images/task-availability-visibility.png), and
+[combined availability](docs/images/task-availability-deadline.png).
 
 ## Android home-screen widget
 

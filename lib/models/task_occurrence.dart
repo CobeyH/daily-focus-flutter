@@ -83,8 +83,7 @@ DateTime scheduleStart(Task task) =>
     dateOnly(task.schedule.startsOn ?? task.createdAt);
 
 /// Select one actionable cycle. An older cycle still in grace takes priority;
-/// expired cycles move to history once a new scheduled cycle is due. Off-day
-/// recurring tasks remain actionable until their next due date.
+/// expired cycles move to history and the next scheduled cycle can appear early.
 TaskOccurrence? currentOccurrence(
     Task task, Iterable<TaskEntry> entries, DateTime now,
     [DaySlots slots = const DaySlots()]) {
@@ -118,13 +117,22 @@ TaskOccurrence? currentOccurrence(
   }
   if (last != null) {
     final candidate = at(last);
-    if (!candidate.done && !candidate.skipped) return candidate;
-    if (candidate.completedToday || dateKey(last) == dateKey(today)) {
+    if (!candidate.done &&
+        !candidate.skipped &&
+        !task.timing.pastGrace(last, now)) {
+      return candidate;
+    }
+    if (candidate.completedToday ||
+        ((candidate.done || candidate.skipped) &&
+            dateKey(last) == dateKey(today))) {
       return candidate;
     }
   }
-  final next =
+  var next =
       task.schedule.firstDueDateFrom(today.isBefore(start) ? start : today);
+  if (next != null && task.timing.pastGrace(next, now)) {
+    next = task.schedule.nextDueDateAfter(next);
+  }
   if (next != null) return at(next);
   return last == null ? null : at(last);
 }
@@ -139,7 +147,10 @@ TaskOccurrence? nextOccurrence(
   for (var i = 0; i < 366 && day != null; i++) {
     final occurrence = TaskOccurrence(
         task, day, entryFor(entries, task.id, dateKey(day)), now, slots);
-    if (!occurrence.done && !occurrence.skipped && !occurrence.visible) {
+    if (!occurrence.done &&
+        !occurrence.skipped &&
+        !task.timing.pastGrace(day, now) &&
+        !occurrence.visible) {
       return occurrence;
     }
     day = task.schedule.nextDueDateAfter(day);

@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:daily_focus/main.dart';
 import 'package:daily_focus/models/schedule.dart';
 import 'package:daily_focus/models/task.dart';
+import 'package:daily_focus/models/task_timing.dart';
+import 'package:daily_focus/models/task_occurrence.dart';
 import 'package:daily_focus/providers/app_controller.dart';
 import 'package:daily_focus/screens/auth_screen.dart';
 import 'package:daily_focus/utils/dates.dart';
@@ -181,24 +183,26 @@ void main() {
       expect(isTaskOverdueOn(task, DateTime(2026, 8, 31), state), isFalse);
     });
 
-    test('recurring task with a missed due date is overdue', () {
-      // Every Monday; first due 2026-08-24. Today is Tuesday 2026-09-01 —
-      // the previous Monday (2026-08-31) was missed, so the task is overdue.
+    test(
+        'expired recurring task moves to its next cycle without an active overdue backlog',
+        () {
       final task = Task.create(
-        name: 'Take out trash',
-        type: TaskType.count,
-        goal: 1,
-        step: 1,
-        color: 0xFF000000,
-        icon: 0xe000,
-        schedule: ScheduleWeekly(
-          intervalWeeks: 1,
-          daysOfWeek: const [DateTime.monday],
-          firstDueDate: DateTime(2026, 8, 24),
-        ),
-      );
-      final state = AppState(tasks: [task], entries: const []);
-      expect(isTaskOverdueOn(task, DateTime(2026, 9, 1), state), isTrue);
+          name: 'Take out trash',
+          type: TaskType.count,
+          goal: 1,
+          step: 1,
+          color: 0,
+          icon: 0xe000,
+          schedule: ScheduleWeekly(
+              intervalWeeks: 1,
+              daysOfWeek: const [DateTime.monday],
+              firstDueDate: DateTime(2026, 8, 24)));
+      final state = AppState(tasks: [task], entries: const []),
+          today = DateTime(2026, 9, 1);
+      expect(isTaskOverdueOn(task, today, state), isFalse);
+      expect(currentOccurrence(task, [], today)!.key, '2026-09-07');
+      expect(TaskOccurrence(task, DateTime(2026, 8, 31), null, today).status,
+          OccurrenceStatus.overdue);
     });
 
     test('a recurring task created today is NOT overdue on the same day', () {
@@ -222,93 +226,64 @@ void main() {
       expect(isTaskOverdueOn(task, DateTime(2026, 8, 31), state), isFalse);
     });
 
-    test('completing an overdue task clears overdue', () async {
-      // Deterministic date setup: today is Tuesday 2026-09-01. The schedule
-      // is "every Monday" anchored to the missed Monday itself (2026-08-31),
-      // so the only due date strictly before today is 2026-08-31 and it's
-      // unmet — overdue.
-      final today = DateTime(2026, 9, 1); // Tuesday
+    test(
+        'manual completion of an expired recurring task cannot backfill history',
+        () async {
+      final today = DateTime(2026, 9, 1);
       final task = Task.create(
-        name: 'Take out trash',
-        type: TaskType.count,
-        goal: 1,
-        step: 1,
-        color: 0xFF000000,
-        icon: 0xe000,
-        schedule: ScheduleWeekly(
-          intervalWeeks: 1,
-          daysOfWeek: const [DateTime.monday],
-          firstDueDate: DateTime(2026, 8, 31),
-        ),
-      );
+          name: 'Take out trash',
+          type: TaskType.count,
+          goal: 1,
+          step: 1,
+          color: 0,
+          icon: 0xe000,
+          schedule: ScheduleWeekly(
+              intervalWeeks: 1,
+              daysOfWeek: const [DateTime.monday],
+              firstDueDate: DateTime(2026, 8, 31)));
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-
       final container = ProviderContainer(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      );
+          overrides: [sharedPreferencesProvider.overrideWithValue(prefs)]);
       addTearDown(container.dispose);
-
-      await container.read(appControllerProvider.notifier).addTask(task);
-
-      expect(
-        isTaskOverdueOn(task, today, container.read(appControllerProvider)),
-        isTrue,
-        reason: 'Should be overdue: missed Monday 2026-08-31 < today',
-      );
-
-      // Tap once, crediting today and the missed Monday (injected `now`
-      // makes this deterministic regardless of real-world clock).
-      await container
-          .read(appControllerProvider.notifier)
-          .increment(task, now: today);
-
-      expect(
-        isTaskOverdueOn(task, today, container.read(appControllerProvider)),
-        isFalse,
-        reason: 'Should no longer be overdue after completion',
-      );
+      final controller = container.read(appControllerProvider.notifier);
+      await controller.addTask(task);
+      await controller.increment(task, now: today);
+      expect(container.read(appControllerProvider).entries, isEmpty);
+      expect(currentOccurrence(task, [], today)!.key, '2026-09-07');
     });
 
-    test('completing an overdue task credits only its scheduled date',
+    test(
+        'completion within the availability window credits only its scheduled date',
         () async {
-      // Today is Tuesday 2026-09-01. Schedule is "every Monday" anchored
-      // to the missed Monday (2026-08-31).
-      final today = DateTime(2026, 9, 1); // Tuesday
-      final missedMonday = DateTime(2026, 8, 31);
+      final today = DateTime(2026, 9, 1), missedMonday = DateTime(2026, 8, 31);
       final task = Task.create(
-        name: 'Take out trash',
-        type: TaskType.count,
-        goal: 1,
-        step: 1,
-        color: 0xFF000000,
-        icon: 0xe000,
-        schedule: ScheduleWeekly(
-          intervalWeeks: 1,
-          daysOfWeek: const [DateTime.monday],
-          firstDueDate: DateTime(2026, 8, 31),
-        ),
-      );
+          name: 'Take out trash',
+          type: TaskType.count,
+          goal: 1,
+          step: 1,
+          color: 0,
+          icon: 0xe000,
+          timing: const TaskTiming(graceDays: 2),
+          schedule: ScheduleWeekly(
+              intervalWeeks: 1,
+              daysOfWeek: const [DateTime.monday],
+              firstDueDate: missedMonday));
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-
       final container = ProviderContainer(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      );
+          overrides: [sharedPreferencesProvider.overrideWithValue(prefs)]);
       addTearDown(container.dispose);
-
-      await container.read(appControllerProvider.notifier).addTask(task);
-
-      await container
-          .read(appControllerProvider.notifier)
-          .increment(task, now: today);
-
+      final controller = container.read(appControllerProvider.notifier);
+      await controller.addTask(task);
+      expect(
+          currentOccurrence(task, [], today)!.status, OccurrenceStatus.grace);
+      await controller.increment(task, now: today);
       final after = container.read(appControllerProvider);
-      expect(after.progressFor(task.id, dateKey(today)), 0,
-          reason: 'Completion must not create a second credited day');
-      expect(after.progressFor(task.id, dateKey(missedMonday)) >= 1, isTrue,
-          reason: 'Missed date should be credited');
-      expect(isTaskOverdueOn(task, today, after), isFalse);
+      expect(after.progressFor(task.id, dateKey(today)), 0);
+      expect(after.progressFor(task.id, dateKey(missedMonday)), 1);
+      expect(after.entries.single.completionTiming, 'grace');
+      expect(currentStreak(task, after.entries, today), 1);
     });
   });
 }
